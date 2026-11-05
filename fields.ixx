@@ -26,7 +26,7 @@ struct DownloadState {
 	Status status_code = Status::NoStatusCode;
 };
 
-using UserCallback = std::function<void(const DownloadState &)>;
+using UserCallback = std::function<bool(const DownloadState &)>;
 
 
 // Represents an unordered mapping of {key, value} query string pairs.

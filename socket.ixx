@@ -45,11 +45,13 @@ public:
     Socket(const Socket &) = delete;
     Socket &operator=(const Socket &) = delete;
 
+    // Invalidate the other socket.
     Socket(Socket &&other) noexcept : m_fd(other.m_fd)
     {
         other.m_fd = -1;
     }
 
+    // Close the current socket, steal the other's fd and invalidate.
     Socket &operator=(Socket &&other) noexcept
     {
         if (this != &other) {
@@ -158,19 +160,17 @@ public:
 
     // Read the headers and body in one shot.
     Response readAll() {
-        // TODO: Chunked.
-        Response r = readHeaders();
+        std::string body;
+        auto cb = [&body](const http::DownloadState &state) {
+            body += state.buffer;
+            return true;
+        };
 
-        std::size_t len = r.contentLength();
+        auto r = readCallback(cb);
 
-        std::string buf;
-        buf.resize(4096);
+        r.body = body;
 
-        ssize_t size;
-        while (r.body.size() < len && (size = recv(buf)) > 0) {
-            r.body.append(buf.data(), size);
-        }
-
+        std::println("Body size: {}", body.size());
         return r;
     }
 
@@ -182,7 +182,7 @@ public:
         // account for ending byte
         std::size_t len = r.contentLength() + 1;
         std::size_t read = r.body.size();
-        cb({read, len - read, r.body, len, r.status_code});
+        cb({read, len - read, r.body.substr(0, read), len, r.status_code});
 
         std::string buf;
         buf.resize(4096);
@@ -190,7 +190,9 @@ public:
         ssize_t size;
         while (read < len && (size = recv(buf)) > 0) {
             read += size;
-            cb({read, len - read, buf, len, r.status_code});
+            auto res = cb({read, len - read, buf.substr(0, size), len, r.status_code});
+            if (!res)
+                break;
         }
 
         return r;

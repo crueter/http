@@ -32,9 +32,9 @@ int main()
         http::Socket s(example);
 
         if (s.isValid()) {
-            std::println("Connect to example.com succeeded");
+            std::println("Connect to http://httpbin.org succeeded");
         } else {
-            std::println("Connect to example.com failed");
+            std::println("Connect to http://httpbin.org failed");
             return 1;
         }
 
@@ -78,6 +78,9 @@ int main()
         const auto func = [](const http::DownloadState &state) {
             std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
                          state.content_length, state.bytes_left);
+
+
+            return true;
         };
 
         auto r = s.readCallback(func);
