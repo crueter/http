@@ -21,8 +21,6 @@ int main()
             std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
                          state.content_length, state.bytes_left);
 
-            // std::println("Body fragment:\n{}", state.buffer);
-
             return true;
         };
 

@@ -91,7 +91,7 @@ public:
     {
         // TODO: better sln.
         std::string lower_key{key};
-        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(),
+        std::ranges::transform(lower_key, lower_key.begin(),
                        [](uint8_t c) { return std::tolower(c); });
         m_entries.emplace(lower_key, value);
     }
