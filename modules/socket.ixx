@@ -83,7 +83,7 @@ public:
     }
 };
 
-void free_ssl(SSL *s)
+static void free_ssl(SSL *s)
 {
     if (s) {
         SSL_shutdown(s);
