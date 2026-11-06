@@ -21,15 +21,14 @@ export namespace http
 
 // Represents the current state of downloading.
 struct DownloadState {
-	uint64_t bytes_received = 0;
-	uint64_t bytes_left = 0;
-	std::string_view buffer;
-	uint64_t content_length = 0;
-	Status status_code = Status::NoStatusCode;
+    uint64_t bytes_received = 0;
+    uint64_t bytes_left = 0;
+    std::string_view buffer;
+    uint64_t content_length = 0;
+    Status status_code = Status::NoStatusCode;
 };
 
 using UserCallback = std::function<bool(const DownloadState &)>;
-
 
 // Represents an unordered mapping of {key, value} query string pairs.
 class Parameters {
@@ -92,9 +91,8 @@ public:
     {
         // TODO: better sln.
         std::string lower_key{key};
-        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), [](uint8_t c) {
-            return std::tolower(c);
-        });
+        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(),
+                       [](uint8_t c) { return std::tolower(c); });
         m_entries.emplace(lower_key, value);
     }
 
@@ -233,17 +231,19 @@ public:
 // Represents a response from a server.
 class Response {
 public:
-	std::string body;
-	Header header;
-	std::string status_line;
-	Status status_code = Status::NoStatusCode;
-	std::string reason;
+    std::string body;
+    Header header;
+    std::string status_line;
+    Status status_code = Status::NoStatusCode;
+    std::string reason;
     TransferMode transferMode = TransferMode::NoData;
 
     // Parse the status line e.g "HTTP/1.1 200 OK".
-    static void parseStatusLine(std::string_view line, int& code, std::string &reason) {
+    static void parseStatusLine(std::string_view line, int &code, std::string &reason)
+    {
         auto space1 = line.find(' ');
-        if (space1 == std::string_view::npos) return;
+        if (space1 == std::string_view::npos)
+            return;
 
         auto space2 = line.find(' ', space1 + 1);
         std::string_view code_str;
@@ -266,10 +266,13 @@ public:
         }
     }
 
-    Response(std::string_view data = "") {
-        if (data.empty()) return;
+    Response(std::string_view data = "")
+    {
+        if (data.empty())
+            return;
         auto header_end = data.find("\r\n\r\n");
-        std::string_view header_str = (header_end != std::string_view::npos) ? data.substr(0, header_end) : data;
+        std::string_view header_str =
+            (header_end != std::string_view::npos) ? data.substr(0, header_end) : data;
 
         if (header_end != std::string_view::npos) {
             body = data.substr(header_end + 4);
@@ -285,12 +288,13 @@ public:
                                         ? header_str.substr(pos, line_end - pos)
                                         : header_str.substr(pos);
 
-            if (line.empty()) break;
+            if (line.empty())
+                break;
 
             // status line
             if (firstLine) {
                 status_line = line;
-                parseStatusLine(line, (int&) status_code, reason);
+                parseStatusLine(line, (int &) status_code, reason);
                 firstLine = false;
             } else {
                 auto colon = line.find(':');
@@ -307,7 +311,8 @@ public:
                 }
             }
 
-            if (line_end == std::string_view::npos) break;
+            if (line_end == std::string_view::npos)
+                break;
             pos = line_end + 2;
         }
 
@@ -343,28 +348,29 @@ public:
 
 export {
 
-template <>
-struct std::formatter<http::URL> : std::formatter<std::string> {
-    auto format(const http::URL &u, std::format_context &ctx) const {
-        std::string port, protocol;
+    template <>
+    struct std::formatter<http::URL> : std::formatter<std::string> {
+        auto format(const http::URL &u, std::format_context &ctx) const
+        {
+            std::string port, protocol;
 
-        switch (u.protocol) {
-        case http::Protocol::NoProtocol:
-            protocol = "";
-            port = u.port_str;
-            break;
-        case http::Protocol::HTTP:
-            protocol = "http://";
-            port = u.port == 80 ? "" : std::format(":{}", u.port_str);
-            break;
-        case http::Protocol::HTTPS:
-            protocol = "https://";
-            port = u.port == 443 ? "" : std::format(":{}", u.port_str);
-            break;
+            switch (u.protocol) {
+            case http::Protocol::NoProtocol:
+                protocol = "";
+                port = u.port_str;
+                break;
+            case http::Protocol::HTTP:
+                protocol = "http://";
+                port = u.port == 80 ? "" : std::format(":{}", u.port_str);
+                break;
+            case http::Protocol::HTTPS:
+                protocol = "https://";
+                port = u.port == 443 ? "" : std::format(":{}", u.port_str);
+                break;
+            }
+
+            return std::format_to(ctx.out(), "{}{}{}{}{}", protocol, u.hostname, port, u.route,
+                                  u.params.str);
         }
-
-        return std::format_to(ctx.out(), "{}{}{}{}{}", protocol, u.hostname, port, u.route, u.params.str);
-    }
-};
-
+    };
 }

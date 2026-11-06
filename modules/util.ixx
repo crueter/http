@@ -1,8 +1,8 @@
 module;
 
-#include <string_view>
 #include <cctype>
 #include <cstdint>
+#include <string_view>
 
 export module http:util;
 
@@ -38,6 +38,5 @@ inline bool icontains(std::string_view haystack, std::string_view needle)
     }
     return false;
 }
-
 
 } // namespace http::util

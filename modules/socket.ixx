@@ -27,19 +27,20 @@ module;
 // SSL stuff
 #ifndef REQUESTS_NO_TLS
 
-#include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include <openssl/pem.h>
+#include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
-#include <openssl/bio.h>
 
 #endif // #ifndef REQUESTS_NO_TLS
 
 export module http:socket;
 export import :fields;
 
-namespace http {
-    // shared ssl context
+namespace http
+{
+// shared ssl context
 class SSLContext {
 private:
     SSL_CTX *ctx;
@@ -81,7 +82,7 @@ public:
     }
 };
 
-};
+}; // namespace http
 
 export namespace http
 {
@@ -299,8 +300,10 @@ public:
     }
 
     // Receive into a buffer.
-    ssize_t recv(std::string &buffer, std::size_t bytes = 0) {
-        const std::size_t max_bytes = bytes > 0 ? bytes: (buffer.size() > 0 ? buffer.size() - 1 : defaultReadSize);
+    ssize_t recv(std::string &buffer, std::size_t bytes = 0)
+    {
+        const std::size_t max_bytes =
+            bytes > 0 ? bytes : (buffer.size() > 0 ? buffer.size() - 1 : defaultReadSize);
         buffer.resize(max_bytes);
 
         ssize_t size = internal_recv(buffer.data(), max_bytes);
@@ -314,13 +317,15 @@ public:
     }
 
     // Receive a single character.
-    ssize_t recv(char &buffer) {
+    ssize_t recv(char &buffer)
+    {
         auto size = internal_recv(&buffer, 1);
         return size;
     }
 
     // Get all response headers.
-    Response readHeaders() {
+    Response readHeaders()
+    {
         std::string data;
         std::string buf;
         buf.resize(shortReadSize);
@@ -341,7 +346,8 @@ public:
     }
 
     // Read the headers and body in one shot.
-    Response readAll() {
+    Response readAll()
+    {
         std::string body;
         auto cb = [&body](const http::DownloadState &state) {
             body += state.buffer;
@@ -356,7 +362,8 @@ public:
     }
 
     // Sized transfer.
-    void readSized(Response &r, const UserCallback &cb) {
+    void readSized(Response &r, const UserCallback &cb)
+    {
         // account for ending byte
         std::size_t len = r.contentLength();
         std::size_t read = r.body.size();
@@ -374,7 +381,8 @@ public:
     }
 
     // Chunked transfer.
-    void readChunked(Response &r, const UserCallback &cb) {
+    void readChunked(Response &r, const UserCallback &cb)
+    {
         // length is unknown
         std::size_t read = r.body.size();
         std::string buf = r.body;
@@ -406,7 +414,8 @@ public:
             // read hex size
             auto size_str = readLine();
 
-            if (size_str.empty()) break;
+            if (size_str.empty())
+                break;
 
             // strip chunk exts
             auto semi_pos = size_str.find(';');
@@ -426,7 +435,8 @@ public:
 
             // end of data, aka zero size chunk
             if (size == 0) {
-                while (!readLine().empty()) {}
+                while (!readLine().empty()) {
+                }
                 finished = true;
                 break;
             }
@@ -459,12 +469,12 @@ public:
             auto res = cb({read, 0, data, 0, r.status_code});
             if (!res)
                 break;
-
         }
     }
 
     // Read with a callback.
-    Response readCallback(const UserCallback &cb) {
+    Response readCallback(const UserCallback &cb)
+    {
         Response r = readHeaders();
 
         std::println("Transfer mode: {}", (int) r.transferMode);
