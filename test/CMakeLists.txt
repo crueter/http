@@ -12,7 +12,6 @@ if (PROJECT_IS_TOP_LEVEL)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-set(CPMUTIL_FORCE_BUNDLED ON)
 include(CPMUtil)
 
 # tests use jacinth for json parsing

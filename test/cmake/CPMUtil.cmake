@@ -395,7 +395,10 @@ function(fetch_package)
     message(DEBUG "Extracted to ${abs_path}")
 
     # Apply patches
-    apply_patches("${ARG_PATCHES}" "${abs_path}")
+    # TEMP PATCH PLS UPSTREAM TY.
+    if (ARG_PATCHES)
+        apply_patches("${ARG_PATCHES}" "${abs_path}")
+    endif()
 
     # Write patch key
     file(WRITE "${abs_path}/.cpm_patch_key" ${ARG_PATCH_KEY})
