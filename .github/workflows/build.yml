@@ -46,7 +46,7 @@ jobs:
             pacman -Syu --noconfirm --needed cmake ninja ${{ matrix.program }}
           elif command -v apt 2>&1 >/dev/null; then
             apt update
-            apt install -y cmake ninja-build
+            apt install -y cmake ninja-build libssl-dev
 
             case "${{ matrix.program }}" in
               gcc) apt install -y gcc g++ ;;
