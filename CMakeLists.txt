@@ -38,6 +38,10 @@ target_sources(hydrocarbon PUBLIC
 set_target_properties(hydrocarbon PROPERTIES EXPORT_NAME "carbon")
 target_link_libraries(hydrocarbon PUBLIC OpenSSL::SSL)
 
+if (WIN32)
+    target_link_libraries(hydrocarbon PUBLIC ws2_32)
+endif()
+
 add_library(hydro::carbon ALIAS hydrocarbon)
 
 # ccache and sccache do not play very nicely with modules
