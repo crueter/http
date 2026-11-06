@@ -31,19 +31,15 @@ module;
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
-#include <openssl/crypto.h>
-#include <openssl/tls1.h>
+#include <openssl/bio.h>
 
 #endif // #ifndef REQUESTS_NO_TLS
 
 export module http:socket;
 export import :fields;
 
-
-export namespace http
-{
-
-// shared ssl context
+namespace http {
+    // shared ssl context
 class SSLContext {
 private:
     SSL_CTX *ctx;
@@ -85,25 +81,65 @@ public:
     }
 };
 
+};
+
+export namespace http
+{
+
+// headers bigger than this are concerning
+inline constexpr auto maxHeaderSize = 16378;
+
+// most reads
+inline constexpr auto defaultReadSize = 4096;
+
+// headers, readLine
+inline constexpr auto shortReadSize = 1024;
+
 class Socket {
     int m_fd = -1;
+    SSL *m_ssl = nullptr;
+    bool m_connected = false;
 
-    SSL *m_ssl;
+    // SSL or insecure recv.
+    ssize_t internal_recv(char *buf, std::size_t n)
+    {
+        if (!m_ssl)
+            return ::recv(m_fd, buf, n, 0);
 
-    ssize_t internal_recv(char *buf, std::size_t n) {
-        if (m_ssl) {
-            return SSL_read(m_ssl, buf, n);
+        while (true) {
+            auto r = SSL_read(m_ssl, buf, n);
+            if (r >= 0)
+                return r;
+
+            // ssl error
+            if (!BIO_should_retry(SSL_get_rbio(m_ssl))) {
+                return -1;
+            }
+
+            // otherwise keep retrying
         }
-
-        return ::recv(m_fd, buf, n, 0);
     }
 
-    ssize_t internal_send(char *buf, std::size_t n) {
-        if (m_ssl) {
-            return SSL_write(m_ssl, buf, n);
+    // SSL or insecure send.
+    ssize_t internal_send(char *buf, std::size_t n)
+    {
+        if (!m_ssl)
+            return ::send(m_fd, buf, n, 0);
+
+        std::size_t total = 0;
+        while (total < n) {
+            auto w = SSL_write(m_ssl, buf, n);
+
+            if (w > 0)
+                total += w;
+
+            // ssl error
+            else if (!BIO_should_retry(SSL_get_wbio(m_ssl))) {
+                break;
+            }
         }
 
-        return ::send(m_fd, buf, n, 0);
+        return total;
     }
 
 public:
@@ -124,9 +160,10 @@ public:
     Socket &operator=(const Socket &) = delete;
 
     // Invalidate the other socket.
-    Socket(Socket &&other) noexcept : m_fd(other.m_fd)
+    Socket(Socket &&other) noexcept : m_fd(other.m_fd), m_ssl(other.m_ssl)
     {
         other.m_fd = -1;
+        other.m_ssl = nullptr;
     }
 
     // Close the current socket, steal the other's fd and invalidate.
@@ -136,9 +173,18 @@ public:
             if (m_fd >= 0)
                 closesocket(m_fd);
 
+            if (m_ssl) {
+                SSL_shutdown(m_ssl);
+                SSL_free(m_ssl);
+            }
+
             m_fd = other.m_fd;
             other.m_fd = -1;
+
+            m_ssl = other.m_ssl;
+            other.m_ssl = nullptr;
         }
+
         return *this;
     }
 
@@ -151,6 +197,12 @@ public:
     {
         return m_fd >= 0;
     }
+
+    [[nodiscard]] bool connected() const
+    {
+        return m_connected;
+    }
+
 
     // Connect to a URL and return the connected socket.
     Socket(const http::URL &url)
@@ -185,19 +237,25 @@ public:
 
         // tls
         if (url.protocol == Protocol::HTTPS) {
-            m_ssl = SSL_new(SSLContext::ssl_context().get());
+            auto ctx = SSLContext::ssl_context().get();
+            if (!ctx) {
+                std::println(stderr, "Failed to init ctx");
+            }
+
+            m_ssl = SSL_new(ctx);
             if (!m_ssl) {
                 std::println(stderr, "Failed to init ssl");
                 // TODO: better error logging
                 return;
             }
-            // TODO: custom cert
+
+            // TODO: custom cert buffer or file
 
             SSL_set_fd(m_ssl, m_fd);
             SSL_set_tlsext_host_name(m_ssl, url.hostname.c_str());
+            SSL_set_verify(m_ssl, SSL_VERIFY_PEER, nullptr);
 
             if (SSL_connect(m_ssl)) {
-                SSL_set_verify(m_ssl, SSL_VERIFY_PEER, nullptr);
                 auto cert = SSL_get_peer_certificate(m_ssl);
                 if (!cert) {
                     std::println(stderr, "Failed to get cert");
@@ -212,6 +270,12 @@ public:
                     // TODO: better error logging
                     return;
                 }
+
+                m_connected = true;
+            } else {
+                closesocket(m_fd);
+                SSL_shutdown(m_ssl);
+                SSL_free(m_ssl);
             }
         }
     }
@@ -237,7 +301,7 @@ public:
 
     // Receive into a buffer.
     ssize_t recv(std::string &buffer, std::size_t bytes = 0) {
-        const std::size_t max_bytes = bytes > 0 ? bytes: (buffer.size() > 0 ? buffer.size() - 1 : 4096);
+        const std::size_t max_bytes = bytes > 0 ? bytes: (buffer.size() > 0 ? buffer.size() - 1 : defaultReadSize);
         buffer.resize(max_bytes);
 
         ssize_t size = internal_recv(buffer.data(), max_bytes);
@@ -260,7 +324,7 @@ public:
     Response readHeaders() {
         std::string data;
         std::string buf;
-        buf.resize(1024);
+        buf.resize(shortReadSize);
 
         // Read until header block is complete.
         while (recv(buf) > 0) {
@@ -269,7 +333,7 @@ public:
                 break;
 
             // headers are gigantic, leave now before bad things happen.
-            if (data.size() > 16378)
+            if (data.size() > maxHeaderSize)
                 break;
         }
 
@@ -302,7 +366,7 @@ public:
         std::string buf;
 
         ssize_t size;
-        while (read < len && (size = recv(buf, 4096)) > 0) {
+        while (read < len && (size = recv(buf, defaultReadSize)) > 0) {
             read += size;
             auto res = cb({read, len - read, buf, len, r.status_code});
             if (!res)
@@ -316,8 +380,6 @@ public:
         std::size_t read = r.body.size();
         std::string buf = r.body;
         bool finished = false;
-
-        std::println("Body size {}", read);
 
         // read a full line until \r\n, recv'ing if needed
         const auto readLine = [this, &buf]() -> std::string {
@@ -333,7 +395,7 @@ public:
 
                 // need more socket data
                 std::string tmp;
-                if (recv(tmp, 1024) <= 0)
+                if (recv(tmp, shortReadSize) <= 0)
                     break;
                 buf += tmp;
             }

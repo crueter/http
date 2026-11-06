@@ -23,7 +23,8 @@ int main()
     //     std::println("Payload:\n{}", r->body.data);
     // }
 
-    // http::URL u = "https://webhook.crueter.xyz:8080/forgejo?param1=123&param2=hi";
+    http::URL u = "https://webhook.crueter.xyz:8080/forgejo?param1=123&param2=hi";
+    std::println("URL: {}", u);
     // printUrl(u);
 
     // // oneshot read
@@ -60,13 +61,13 @@ int main()
 
     // callback read
     {
-        http::URL example = "https://www.google.com";
+        http::URL example = "https://www.obviously-nonexistent-fake-website.com";
         http::Socket s(example);
 
         if (s.isValid()) {
-            std::println("Connect to example.com succeeded");
+            std::println("Connect to {} succeeded", example);
         } else {
-            std::println("Connect to example.com failed");
+            std::println("Connect to {} failed", example);
             return 1;
         }
 
@@ -80,7 +81,7 @@ int main()
             std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
                          state.content_length, state.bytes_left);
 
-            // std::println("Body fragment:\n{}", state.buffer);
+            std::println("Body fragment:\n{}", state.buffer);
 
             return true;
         };

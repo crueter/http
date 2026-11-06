@@ -4,6 +4,7 @@ module;
 #include <charconv>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <functional>
 #include <optional>
 #include <string>
@@ -339,3 +340,31 @@ public:
 };
 
 } // namespace http
+
+export {
+
+template <>
+struct std::formatter<http::URL> : std::formatter<std::string> {
+    auto format(const http::URL &u, std::format_context &ctx) const {
+        std::string port, protocol;
+
+        switch (u.protocol) {
+        case http::Protocol::NoProtocol:
+            protocol = "";
+            port = u.port_str;
+            break;
+        case http::Protocol::HTTP:
+            protocol = "http://";
+            port = u.port == 80 ? "" : std::format(":{}", u.port_str);
+            break;
+        case http::Protocol::HTTPS:
+            protocol = "https://";
+            port = u.port == 443 ? "" : std::format(":{}", u.port_str);
+            break;
+        }
+
+        return std::format_to(ctx.out(), "{}{}{}{}{}", protocol, u.hostname, port, u.route, u.params.str);
+    }
+};
+
+}
