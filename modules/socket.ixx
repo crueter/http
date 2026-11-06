@@ -505,7 +505,7 @@ public:
         return {};
     }
 
-        // Get all response headers.
+    // Get all response headers.
     [[nodiscard]] std::expected<Response, Error> readHeaders()
     {
         std::string data;
@@ -537,7 +537,8 @@ public:
         };
 
         auto ec = readCallback(cb);
-        if (!ec) return ec;
+        if (!ec)
+            return ec;
 
         auto r = ec.value();
         r.body = body;

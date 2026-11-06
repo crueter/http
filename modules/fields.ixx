@@ -228,7 +228,8 @@ public:
     }
 
     // <protocol>://<hostname>[:port]
-    std::string hostpart() const {
+    std::string hostpart() const
+    {
         std::string port_str, protocol_str;
 
         switch (protocol) {
