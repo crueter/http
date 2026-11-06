@@ -11,8 +11,12 @@ if (PROJECT_IS_TOP_LEVEL)
     find_package(hydrocarbon REQUIRED)
 endif()
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+set(CPMUTIL_FORCE_BUNDLED ON)
+include(CPMUtil)
+
 # tests use jacinth for json parsing
-find_package(jacinth 0.1.0 REQUIRED)
+AddJsonPackage(NAME jacinth)
 
 # test lib
 add_library(tests STATIC)
