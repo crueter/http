@@ -1,5 +1,9 @@
 module;
 
+#include <format>
+#include <string>
+#include <string_view>
+
 export module http:enums;
 
 export namespace http
@@ -88,4 +92,101 @@ enum class TransferMode {
 
 enum class Version { HTTP_1_0 = -1, HTTP_1_1 = 0 };
 
+// Connection errors.
+enum class Error {
+    // No error
+    Success,
+
+    // Failed DNS lookup
+    DNSFailure,
+
+    // Failed to create socket
+    SocketCreate,
+
+    // Connection to IP failed
+    ConnectFailed,
+
+    // Invalid TLS context
+    TLSCtx,
+
+    // Failed to initialize TLS
+    TLSInit,
+
+    // Failed to grab certificate
+    TLSCert,
+
+    // Failed to verify certificate
+    TLSVerify,
+
+    // Invalid certificate passed in
+    InvalidCert,
+
+    // Failed to send data
+    SendFailed,
+
+    // Failed to read data
+    ReadFailed,
+};
+
+// Connection options
+struct ConnectOptions {
+    // Whether or not to verify the server certificate.
+    bool verify = true;
+
+    // A custom certificate to load.
+    std::string cert = "";
+
+    // Disable SSL entirely.
+    bool disableSsl = false;
+};
+
 } // namespace http
+
+// formatter specs
+export {
+
+    template <>
+    struct std::formatter<http::Error> : std::formatter<std::string_view> {
+        auto format(const http::Error e, std::format_context &ctx) const
+        {
+            std::string_view name;
+            switch (e) {
+            case http::Error::Success:
+                name = "No error";
+                break;
+            case http::Error::DNSFailure:
+                name = "DNS lookup failure";
+                break;
+            case http::Error::SocketCreate:
+                name = "OS failed to create socket";
+                break;
+            case http::Error::ConnectFailed:
+                name = "Failed to connect to host";
+                break;
+            case http::Error::TLSCtx:
+                name = "Failed to initialize TLS context";
+                break;
+            case http::Error::TLSInit:
+                name = "Failed to initialize TLS state";
+                break;
+            case http::Error::TLSCert:
+                name = "Server returned no or invalid certificate";
+                break;
+            case http::Error::TLSVerify:
+                name = "Failed to verify server certificate";
+                break;
+            case http::Error::InvalidCert:
+                name = "Invalid custom certificate passed";
+                break;
+            case http::Error::SendFailed:
+                name = "Connection closed or failed during send";
+                break;
+            case http::Error::ReadFailed:
+                name = "Connection closed or failed during read";
+                break;
+            }
+
+            return std::formatter<std::string_view>::format(name, ctx);
+        }
+    };
+}

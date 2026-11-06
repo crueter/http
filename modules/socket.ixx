@@ -1,9 +1,12 @@
 module;
 
 #include <cstring>
+#include <expected>
 #include <format>
+#include <memory>
 #include <print>
 #include <string>
+#include <utility>
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <arpa/inet.h>
@@ -25,15 +28,11 @@ module;
 #endif
 
 // SSL stuff
-#ifndef REQUESTS_NO_TLS
-
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
-
-#endif // #ifndef REQUESTS_NO_TLS
 
 export module http:socket;
 export import :fields;
@@ -63,7 +62,6 @@ public:
     {
         if (!ctx) {
             ctx = SSL_CTX_new(TLS_client_method());
-            SSL_CTX_set_default_verify_paths(ctx);
         }
 
         return ctx != nullptr;
@@ -82,7 +80,17 @@ public:
     }
 };
 
+void free_ssl(SSL *s)
+{
+    if (s) {
+        SSL_shutdown(s);
+        SSL_free(s);
+    }
+}
+
 }; // namespace http
+
+using RAII_SSL = std::unique_ptr<SSL, decltype(&http::free_ssl)>;
 
 export namespace http
 {
@@ -96,8 +104,65 @@ inline constexpr auto defaultReadSize = 4096;
 // headers, readLine
 inline constexpr auto shortReadSize = 1024;
 
-class Socket {
+// raii fd wrapper
+class FileDescriptor {
+protected:
     int m_fd = -1;
+
+public:
+    FileDescriptor() = default;
+    explicit FileDescriptor(int fd) : m_fd(fd) {}
+    virtual ~FileDescriptor()
+    {
+        if (m_fd >= 0) {
+            closesocket(m_fd);
+        }
+    }
+
+    FileDescriptor(const FileDescriptor &) = delete;
+    FileDescriptor &operator=(const FileDescriptor &) = delete;
+
+    FileDescriptor(FileDescriptor &&other) noexcept : m_fd(std::exchange(other.m_fd, -1)) {}
+
+    FileDescriptor &operator=(FileDescriptor &&other) noexcept
+    {
+        if (this != &other) {
+            if (m_fd >= 0)
+                closesocket(m_fd);
+
+            m_fd = std::exchange(other.m_fd, -1);
+        }
+        return *this;
+    }
+
+    FileDescriptor &operator=(int fd)
+    {
+        if (m_fd >= 0)
+            closesocket(m_fd);
+
+        m_fd = fd;
+        return *this;
+    }
+
+    operator int() const
+    {
+        return m_fd;
+    }
+
+    [[nodiscard]] int release()
+    {
+        int temp = m_fd;
+        m_fd = -1;
+        return temp;
+    }
+
+    [[nodiscard]] bool isValid() const
+    {
+        return m_fd >= 0;
+    }
+};
+
+class Socket : public FileDescriptor {
     SSL *m_ssl = nullptr;
     bool m_connected = false;
 
@@ -144,68 +209,32 @@ class Socket {
     }
 
 public:
-    explicit Socket(int fd) : m_fd(fd) {}
+    // default constructor
+    Socket() = default;
 
     ~Socket()
     {
-        if (m_fd >= 0)
-            closesocket(m_fd);
-
-        if (m_ssl) {
-            SSL_shutdown(m_ssl);
-            SSL_free(m_ssl);
-        }
+        free_ssl(m_ssl);
     }
 
     Socket(const Socket &) = delete;
     Socket &operator=(const Socket &) = delete;
 
-    // Invalidate the other socket.
-    Socket(Socket &&other) noexcept : m_fd(other.m_fd), m_ssl(other.m_ssl)
+    Socket(Socket &&other) noexcept
+        : FileDescriptor(std::move(other)), m_ssl(std::exchange(other.m_ssl, nullptr)),
+          m_connected(std::exchange(other.m_connected, false))
     {
-        other.m_fd = -1;
-        other.m_ssl = nullptr;
     }
 
-    // Close the current socket, steal the other's fd and invalidate.
-    Socket &operator=(Socket &&other) noexcept
-    {
-        if (this != &other) {
-            if (m_fd >= 0)
-                closesocket(m_fd);
-
-            if (m_ssl) {
-                SSL_shutdown(m_ssl);
-                SSL_free(m_ssl);
-            }
-
-            m_fd = other.m_fd;
-            other.m_fd = -1;
-
-            m_ssl = other.m_ssl;
-            other.m_ssl = nullptr;
-        }
-
-        return *this;
-    }
-
-    [[nodiscard]] int get() const
-    {
-        return m_fd;
-    }
-
-    [[nodiscard]] bool isValid() const
-    {
-        return m_fd >= 0;
-    }
-
+    // Whether or not this socket has made a connection yet.
     [[nodiscard]] bool connected() const
     {
         return m_connected;
     }
 
     // Connect to a URL and return the connected socket.
-    Socket(const http::URL &url)
+    [[nodiscard]] std::expected<void, Error> connect(const http::URL &url,
+                                                     const ConnectOptions &opts = {})
     {
         struct addrinfo hints = {};
 
@@ -216,87 +245,125 @@ public:
         struct addrinfo *hostinfo = nullptr;
         int err = getaddrinfo(url.hostname.c_str(), url.port_str.c_str(), &hints, &hostinfo);
         if (err != 0) {
-            return;
+            if (hostinfo)
+                freeaddrinfo(hostinfo);
+
+            return std::unexpected(Error::DNSFailure);
         }
 
-        int fd = -1;
+        FileDescriptor fd;
+
         for (auto conn = hostinfo; conn != nullptr; conn = conn->ai_next) {
-            fd = socket(conn->ai_family, conn->ai_socktype, conn->ai_protocol);
-            if (fd == -1)
+            int t_fd = socket(conn->ai_family, conn->ai_socktype, conn->ai_protocol);
+            if (t_fd == -1)
                 continue;
 
-            if (::connect(fd, conn->ai_addr, conn->ai_addrlen) != -1)
+            if (::connect(t_fd, conn->ai_addr, conn->ai_addrlen) != -1) {
+                fd = t_fd;
                 break;
+            }
 
-            closesocket(fd);
-            fd = -1;
+            closesocket(t_fd);
+        }
+
+        if (!fd.isValid()) {
+            freeaddrinfo(hostinfo);
+            return std::unexpected(Error::SocketCreate);
         }
 
         freeaddrinfo(hostinfo);
-        m_fd = fd;
 
         // tls
+        RAII_SSL ssl{nullptr, &free_ssl};
         if (url.protocol == Protocol::HTTPS) {
+            if (opts.disableSsl) {
+                return std::unexpected(Error::ConnectFailed);
+            }
+
+            // setup
             auto ctx = SSLContext::ssl_context().get();
             if (!ctx) {
-                std::println(stderr, "Failed to init ctx");
+                return std::unexpected(Error::TLSCtx);
             }
 
-            m_ssl = SSL_new(ctx);
-            if (!m_ssl) {
-                std::println(stderr, "Failed to init ssl");
-                // TODO: better error logging
-                return;
+            ssl.reset(SSL_new(ctx));
+            if (!ssl) {
+                return std::unexpected(Error::TLSInit);
             }
 
-            // TODO: custom cert buffer or file
-
-            SSL_set_fd(m_ssl, m_fd);
-            SSL_set_tlsext_host_name(m_ssl, url.hostname.c_str());
-            SSL_set_verify(m_ssl, SSL_VERIFY_PEER, nullptr);
-
-            if (SSL_connect(m_ssl)) {
-                auto cert = SSL_get_peer_certificate(m_ssl);
-                if (!cert) {
-                    std::println(stderr, "Failed to get cert");
-                    // TODO: better error logging
-                    return;
+            // TODO: test
+            if (!opts.cert.empty()) {
+                // read cert
+                BIO *bio = BIO_new_mem_buf(opts.cert.data(), opts.cert.size());
+                if (!bio) {
+                    return std::unexpected(Error::InvalidCert);
                 }
+
+                X509 *cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+                if (!cert) {
+                    return std::unexpected(Error::InvalidCert);
+                }
+
+                SSL_use_certificate(ssl.get(), cert);
+
+                X509_free(cert);
+                BIO_free(bio);
+            } else {
+                SSL_CTX_set_default_verify_paths(ctx);
+            }
+
+            SSL_set_fd(ssl.get(), fd);
+            SSL_set_tlsext_host_name(ssl.get(), url.hostname.c_str());
+            SSL_set_verify(ssl.get(), SSL_VERIFY_PEER, nullptr);
+
+            if (SSL_connect(ssl.get()) <= 0) {
+                return std::unexpected(Error::ConnectFailed);
+            }
+
+            if (opts.verify) {
+                auto cert = SSL_get_peer_certificate(ssl.get());
+                if (!cert) {
+                    return std::unexpected(Error::TLSCert);
+                }
+
                 X509_free(cert);
 
-                auto verify_res = SSL_get_verify_result(m_ssl);
+                auto verify_res = SSL_get_verify_result(ssl.get());
                 if (verify_res != X509_V_OK) {
-                    std::println(stderr, "Failed to verify res, err={}", verify_res);
-                    // TODO: better error logging
-                    return;
+                    return std::unexpected(Error::TLSVerify);
                 }
-
-                m_connected = true;
-            } else {
-                closesocket(m_fd);
-                SSL_shutdown(m_ssl);
-                SSL_free(m_ssl);
             }
         }
+
+        m_fd = fd.release();
+        m_ssl = ssl.release();
+        m_connected = true;
+
+        return {};
     }
 
     // Send a formatted string to the socket.
     template <typename... Args>
-    void send(std::format_string<Args...> fmt, Args &&...args)
+    std::expected<std::size_t, Error> send(std::format_string<Args...> fmt, Args &&...args)
     {
         std::string formatted = std::format(fmt, std::forward<Args>(args)...);
-        size_t bytes_left = formatted.size();
-        size_t bytes_sent = 0;
-        size_t offset = 0;
+        std::size_t bytes_left = formatted.size();
+        std::size_t bytes_sent = 0;
+        std::size_t offset = 0;
 
         while (bytes_left > 0) {
             ssize_t sent = internal_send(formatted.data() + offset, bytes_left);
-            if (sent <= 0)
+            if (sent == 0)
                 break;
+            if (sent < 0)
+                return std::unexpected(Error::SendFailed);
 
             bytes_left -= sent;
             offset += sent;
+            bytes_sent += sent;
         }
+
+        return bytes_sent;
     }
 
     // Receive into a buffer.

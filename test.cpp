@@ -61,20 +61,21 @@ int main()
 
     // callback read
     {
-        http::URL example = "https://www.obviously-nonexistent-fake-website.com";
-        http::Socket s(example);
-
-        if (s.isValid()) {
-            std::println("Connect to {} succeeded", example);
-        } else {
-            std::println("Connect to {} failed", example);
-            return 1;
+        http::URL example = "https://www.google.com";
+        http::Socket s;
+        {
+            auto ec = s.connect(example);
+            if (!ec) {
+                std::println(stderr, "Error during connect: {}", ec.error());
+                std::exit(1);
+            }
         }
 
-        s.send("GET {} HTTP/1.1\r\n", example.route);
-        s.send("Host: {}\r\n", example.hostname);
-        s.send("User-Agent: curl/8.22.0\r\n");
-        s.send("Connection: close\r\n\r\n");
+        auto ec = s.send("GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: curl/8.22.0\r\nConnection: close\r\n\r\n", example.route, example.hostname);
+        if (!ec) {
+            std::println("Error during send: {}", ec.error());
+            std::exit(1);
+        }
 
         std::string body;
         const auto func = [](const http::DownloadState &state) {
