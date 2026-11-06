@@ -28,13 +28,12 @@ add_library(hydrocarbon)
 
 target_sources(hydrocarbon PUBLIC
     FILE_SET hydrocarbon TYPE CXX_MODULES
-    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules
-    FILES
-    modules/util.ixx
-    modules/hydrocarbon.ixx
-    modules/fields.ixx
-    modules/enums.ixx
-    modules/socket.ixx)
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules FILES
+        modules/util.ixx
+        modules/hydrocarbon.ixx
+        modules/fields.ixx
+        modules/enums.ixx
+        modules/socket.ixx)
 
 set_target_properties(hydrocarbon PROPERTIES EXPORT_NAME "carbon")
 
