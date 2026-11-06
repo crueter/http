@@ -239,11 +239,11 @@ public:
     [[nodiscard]] std::expected<void, Error> connect(const hydro::URL &url,
                                                      const ConnectOptions &opts = {})
     {
-        struct addrinfo hints = {};
-
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_protocol = IPPROTO_TCP;
+        struct addrinfo hints = {
+            .ai_family = AF_INET,
+            .ai_socktype = SOCK_STREAM,
+            .ai_protocol = IPPROTO_TCP,
+        };
 
         struct addrinfo *hostinfo = nullptr;
         int err = getaddrinfo(url.hostname.c_str(), url.port_str.c_str(), &hints, &hostinfo);
