@@ -71,10 +71,12 @@ int main()
             }
         }
 
-        auto ec = s.send("GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: curl/8.22.0\r\nConnection: close\r\n\r\n", example.route, example.hostname);
-        if (!ec) {
-            std::println("Error during send: {}", ec.error());
-            std::exit(1);
+        {
+            auto ec = s.send("GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: curl/8.22.0\r\nConnection: close\r\n\r\n", example.route, example.hostname);
+            if (!ec) {
+                std::println("Error during send: {}", ec.error());
+                std::exit(1);
+            }
         }
 
         std::string body;
@@ -87,13 +89,21 @@ int main()
             return true;
         };
 
-        auto r = s.readCallback(func);
+        {
+            auto ec = s.readCallback(func);
+            if (!ec) {
+                std::println("Error during read: {}", ec.error());
+                std::exit(1);
+            }
 
-        std::println("Status: {} {}", int(r.status_code), r.reason);
-        std::println("Headers:");
+            const auto &r = ec.value();
 
-        for (const auto &[k, v] : r.header.entries()) {
-            std::println("  {} = {}", k, v);
+            std::println("Status: {} {}", int(r.status_code), r.reason);
+            std::println("Headers:");
+
+            for (const auto &[k, v] : r.header.entries()) {
+                std::println("  {} = {}", k, v);
+            }
         }
 
         // std::println("Body:");

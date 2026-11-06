@@ -126,6 +126,12 @@ enum class Error {
 
     // Failed to read data
     ReadFailed,
+
+    // Headers are way too large to handle
+    HeaderTooBig,
+
+    // Malformed or otherwise invalid chunk data
+    InvalidChunk,
 };
 
 // Connection options
@@ -183,6 +189,12 @@ export {
                 break;
             case http::Error::ReadFailed:
                 name = "Connection closed or failed during read";
+                break;
+            case http::Error::InvalidChunk:
+                name = "Invalid or malformed chunk data received";
+                break;
+            case http::Error::HeaderTooBig:
+                name = "Response header is too large";
                 break;
             }
 

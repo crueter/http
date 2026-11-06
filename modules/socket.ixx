@@ -4,7 +4,6 @@ module;
 #include <expected>
 #include <format>
 #include <memory>
-#include <print>
 #include <string>
 #include <utility>
 
@@ -391,7 +390,7 @@ public:
     }
 
     // Get all response headers.
-    Response readHeaders()
+    [[nodiscard]] std::expected<Response, Error> readHeaders()
     {
         std::string data;
         std::string buf;
@@ -405,7 +404,7 @@ public:
 
             // headers are gigantic, leave now before bad things happen.
             if (data.size() > maxHeaderSize)
-                break;
+                return std::unexpected(Error::HeaderTooBig);
         }
 
         // remaining body bytes will be left in the body field of the response
@@ -413,7 +412,7 @@ public:
     }
 
     // Read the headers and body in one shot.
-    Response readAll()
+    std::expected<Response, Error> readAll()
     {
         std::string body;
         auto cb = [&body](const http::DownloadState &state) {
@@ -421,10 +420,11 @@ public:
             return true;
         };
 
-        auto r = readCallback(cb);
+        auto ec = readCallback(cb);
+        if (!ec) return ec;
 
+        auto r = ec.value();
         r.body = body;
-
         return r;
     }
 
@@ -442,13 +442,14 @@ public:
         while (read < len && (size = recv(buf, defaultReadSize)) > 0) {
             read += size;
             auto res = cb({read, len - read, buf, len, r.status_code});
-            if (!res)
+            if (!res) {
                 break;
+            }
         }
     }
 
     // Chunked transfer.
-    void readChunked(Response &r, const UserCallback &cb)
+    std::expected<void, Error> readChunked(Response &r, const UserCallback &cb)
     {
         // length is unknown
         std::size_t read = r.body.size();
@@ -471,6 +472,7 @@ public:
                 std::string tmp;
                 if (recv(tmp, shortReadSize) <= 0)
                     break;
+
                 buf += tmp;
             }
 
@@ -497,7 +499,7 @@ public:
 
             // malformed response
             if (ec != std::errc{}) {
-                break;
+                return std::unexpected(Error::InvalidChunk);
             }
 
             // end of data, aka zero size chunk
@@ -523,8 +525,9 @@ public:
             }
 
             // connection dropped mid chunk
-            if (buf.size() < target)
-                break;
+            if (buf.size() < target) {
+                return std::unexpected(Error::ReadFailed);
+            }
 
             // get actual chunk data
             std::string data = buf.substr(0, size);
@@ -537,22 +540,29 @@ public:
             if (!res)
                 break;
         }
+
+        return {};
     }
 
     // Read with a callback.
-    Response readCallback(const UserCallback &cb)
+    std::expected<Response, Error> readCallback(const UserCallback &cb)
     {
-        Response r = readHeaders();
+        auto ec = readHeaders();
+        if (!ec)
+            return ec;
 
-        std::println("Transfer mode: {}", (int) r.transferMode);
+        auto r = ec.value();
 
         switch (r.transferMode) {
         case TransferMode::Sized:
             readSized(r, cb);
             break;
-        case TransferMode::Chunked:
-            readChunked(r, cb);
+        case TransferMode::Chunked: {
+            auto r_ec = readChunked(r, cb);
+            if (!r_ec)
+                return std::unexpected(r_ec.error());
             break;
+        }
         case TransferMode::NoData:
             break;
         }
