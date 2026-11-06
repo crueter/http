@@ -169,7 +169,7 @@ class Socket : public FileDescriptor {
     bool m_connected = false;
 
     // SSL or insecure recv.
-    ssize_t internal_recv(char *buf, std::size_t n)
+    int64_t internal_recv(char *buf, std::size_t n)
     {
         if (!m_ssl)
             return ::recv(m_fd, buf, n, 0);
@@ -189,7 +189,7 @@ class Socket : public FileDescriptor {
     }
 
     // SSL or insecure send.
-    ssize_t internal_send(char *buf, std::size_t n)
+    int64_t internal_send(char *buf, std::size_t n)
     {
         if (!m_ssl)
             return ::send(m_fd, buf, n, 0);
@@ -354,7 +354,7 @@ public:
         std::size_t offset = 0;
 
         while (bytes_left > 0) {
-            ssize_t sent = internal_send(formatted.data() + offset, bytes_left);
+            int64_t sent = internal_send(formatted.data() + offset, bytes_left);
             if (sent == 0)
                 break;
             if (sent < 0)
@@ -369,13 +369,13 @@ public:
     }
 
     // Receive into a buffer.
-    ssize_t recv(std::string &buffer, std::size_t bytes = 0)
+    int64_t recv(std::string &buffer, std::size_t bytes = 0)
     {
         const std::size_t max_bytes =
             bytes > 0 ? bytes : (buffer.size() > 0 ? buffer.size() - 1 : defaultReadSize);
         buffer.resize(max_bytes);
 
-        ssize_t size = internal_recv(buffer.data(), max_bytes);
+        int64_t size = internal_recv(buffer.data(), max_bytes);
         if (size > 0) {
             buffer.resize(size);
         } else {
@@ -386,7 +386,7 @@ public:
     }
 
     // Receive a single character.
-    ssize_t recv(char &buffer)
+    int64_t recv(char &buffer)
     {
         auto size = internal_recv(&buffer, 1);
         return size;
@@ -402,7 +402,7 @@ public:
 
         std::string buf;
 
-        ssize_t size;
+        int64_t size;
         while (read < len && (size = recv(buf, defaultReadSize)) > 0) {
             read += size;
             auto res = cb({read, len - read, buf, len, r.status_code});
