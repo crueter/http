@@ -25,7 +25,7 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url, 
 
     // connect
     {
-        auto ec = s.connect(url);
+        auto ec = s.connect(url, opts.connect);
         if (!ec)
             return std::unexpected(ec.error());
     }
@@ -45,17 +45,28 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url, 
         headers.add("host", url.hostname);
     }
 
+    if (!opts.body.empty() && !headers.contains("content-length")) {
+        headers.add("content-length", std::to_string(opts.body.size()));
+    }
+
     // add headers
     std::string headerStr;
     for (const auto &[k, v] : headers.entries()) {
         headerStr += std::format("\r\n{}: {}", k, v);
     }
 
-    const auto finalLine = "\r\nConnection: close\r\n\r\n";
+    std::string finalLine = "\r\nConnection: close\r\n\r\n";
 
     // send off request
     {
         auto ec = s.send("{}{}{}", line1, headerStr, finalLine);
+        if (!ec)
+            return std::unexpected(ec.error());
+    }
+
+    // send body if present
+    if (!opts.body.empty()) {
+        auto ec = s.send("{}", opts.body);
         if (!ec)
             return std::unexpected(ec.error());
     }
@@ -66,6 +77,35 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url, 
     } else {
         return s.readAll();
     }
+}
+
+std::expected<Response, Error> get(const URL &url, const RequestOptions &opts = {}) {
+    return perform("GET", url, opts);
+}
+
+std::expected<Response, Error> head(const URL &url, const RequestOptions &opts = {}) {
+    return perform("HEAD", url, opts);
+}
+
+std::expected<Response, Error> post(const URL &url, const RequestOptions &opts = {}) {
+    return perform("POST", url, opts);
+}
+
+std::expected<Response, Error> put(const URL &url, const RequestOptions &opts = {}) {
+    return perform("PUT", url, opts);
+}
+
+std::expected<Response, Error> patch(const URL &url, const RequestOptions &opts = {}) {
+    return perform("PATCH", url, opts);
+}
+
+std::expected<Response, Error> options(const URL &url, const RequestOptions &opts = {}) {
+    return perform("OPTIONS", url, opts);
+}
+
+// annoying!
+std::expected<Response, Error> perform_delete(const URL &url, const RequestOptions &opts = {}) {
+    return perform("DELETE", url, opts);
 }
 
 } // namespace http
