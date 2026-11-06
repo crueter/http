@@ -13,6 +13,8 @@ void test_get() {
     auto ec = hydro::get(url);
     tests::check_err("httpbin.org/get request succeeds", ec, hydro::Error::Success);
 
+    if (!ec) return;
+
     auto doc = jacinth::doc::read(ec->body);
     tests::check_match("returned method", doc.get<std::string>("method"), "GET");
     tests::check_match("returned URL", doc.get<std::string>("url"), std::format("{}", url));
@@ -28,6 +30,9 @@ void test_drip() {
     auto ec = hydro::get(url);
 
     tests::check_err("httpbin.org/drip request succeeds", ec, hydro::Error::Success);
+
+    if (!ec) return;
+
     tests::check_match("drip body size", ec->body.size(), bytes);
 }
 
