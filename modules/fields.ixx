@@ -39,30 +39,30 @@ public:
     std::string str;
     std::unordered_map<std::string, std::string> params;
 
-    Parameters(std::string_view str = "")
+    Parameters(std::string_view data = "")
     {
-        this->str = std::string{str};
-        if (str.empty())
+        str = std::string{data};
+        if (data.empty())
             return;
 
         std::size_t pos = 0;
-        while (pos < str.size()) {
+        while (pos < data.size()) {
             // skip leading & or ?
-            while (pos < str.size() && (str[pos] == '?' || str[pos] == '&'))
+            while (pos < data.size() && (str[pos] == '?' || data[pos] == '&'))
                 ++pos;
 
-            if (pos >= str.size())
+            if (pos >= data.size())
                 break;
 
             // find current param end
-            std::size_t amp = str.find('&', pos);
-            std::size_t pair_end = (amp == std::string_view::npos) ? str.size() : amp;
+            std::size_t amp = data.find('&', pos);
+            std::size_t pair_end = (amp == std::string_view::npos) ? data.size() : amp;
 
             // find equals separator
-            std::size_t eq = str.find('=', pos);
+            std::size_t eq = data.find('=', pos);
             if (eq != std::string_view::npos && eq < pair_end) {
-                std::string_view name = str.substr(pos, eq - pos);
-                std::string_view value = str.substr(eq + 1, pair_end - (eq + 1));
+                std::string_view name = data.substr(pos, eq - pos);
+                std::string_view value = data.substr(eq + 1, pair_end - (eq + 1));
 
                 if (!name.empty())
                     params.emplace(name, value);
