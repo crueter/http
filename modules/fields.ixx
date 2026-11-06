@@ -244,15 +244,15 @@ public:
             break;
         case Protocol::HTTP:
             protocolStr = "http://";
-            portStr = port == 80 ? "" : std::format(":{}", port_str);
+            portStr = port == 80 ? "" : std::format(":{}", port);
             break;
         case Protocol::HTTPS:
             protocolStr = "https://";
-            portStr = port == 443 ? "" : std::format(":{}", port_str);
+            portStr = port == 443 ? "" : std::format(":{}", port);
             break;
         }
 
-        return std::format("{}{}{}", protocolStr, hostname, port_str);
+        return std::format("{}{}{}", protocolStr, hostname, portStr);
     }
 };
 

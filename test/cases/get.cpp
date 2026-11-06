@@ -39,4 +39,6 @@ void test_drip() {
 int main() {
     test_get();
     test_drip();
+
+    tests::exit();
 }
