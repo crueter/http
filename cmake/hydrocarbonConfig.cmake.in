@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Copyright 2026 crueter
+# SPDX-License-Identifier: MIT
+
+@PACKAGE_INIT@
+
+find_dependency(OpenSSL)
+
+include(CMakeFindDependencyMacro)
+
+include("${CMAKE_CURRENT_LIST_DIR}/hydrocarbonTargets.cmake")
+
+set_target_properties(hydro::carbon PROPERTIES
+    IMPORTED_CXX_MODULES_LINK_LIBRARIES "OpenSSL::SSL"
+    INTERFACE_LINK_LIBRARIES "OpenSSL::SSL")
+
+# ccache and sccache do not play very nicely with modules
+# This will be removed eventually
+get_target_property(launcher hydro::carbon CXX_COMPILER_LAUNCHER)
+if ("${launcher}" MATCHES "ccache")
+    set_target_properties(hydro::carbon PROPERTIES
+        CXX_COMPILER_LAUNCHER ""
+        C_COMPILER_LAUNCHER "")
+endif()
