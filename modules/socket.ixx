@@ -21,8 +21,8 @@ module;
 
 #elif defined(WIN32_LEAN_AND_MEAN) || defined(_WIN32) || defined(WIN32)
 
-#include <windows.h>
 #include <winsock2.h>
+#include <windows.h>
 #include <ws2tcpip.h>
 
 #else
@@ -575,6 +575,8 @@ public:
     }
 };
 
+}; // namespace hydro
+
 // winsock initializer
 // adapted from cpp-httplib
 #ifdef _WIN32
@@ -597,5 +599,3 @@ public:
 
 static WSInit wsinit_;
 #endif
-
-}; // namespace hydro
