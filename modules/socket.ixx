@@ -36,7 +36,7 @@ module;
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
 
-export module hydro:socket;
+export module hydrocarbon:socket;
 export import :fields;
 
 namespace hydro

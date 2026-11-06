@@ -15,7 +15,7 @@ module;
 #include <unordered_map>
 #include <vector>
 
-export module hydro:fields;
+export module hydrocarbon:fields;
 export import :enums;
 export import :util;
 
@@ -162,6 +162,8 @@ public:
     Parameters params;
 
     URL(const char *url) : URL(std::string_view{url, std::strlen(url)}) {}
+
+    URL(std::string url) : URL(std::string_view{url}) {};
 
     URL(std::string_view url)
     {

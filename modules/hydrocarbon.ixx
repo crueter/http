@@ -8,7 +8,7 @@ module;
 #include <string>
 #include <string_view>
 
-export module hydro;
+export module hydrocarbon;
 export import :socket;
 
 inline constexpr bool isRedirect(hydro::Status status)
@@ -78,11 +78,11 @@ struct RedirectOptions {
 
 struct RequestOptions {
     Version version = Version::HTTP_1_1;
-    Header headers;
-    std::string body;
-    UserCallback callback;
-    ConnectOptions connect;
-    RedirectOptions redirect;
+    Header headers{};
+    std::string body = "";
+    UserCallback callback{};
+    ConnectOptions connect{};
+    RedirectOptions redirect{};
 };
 
 // single-shot perform that doesn't follow redirs
