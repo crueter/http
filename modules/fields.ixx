@@ -15,7 +15,7 @@ module;
 #include <unordered_map>
 #include <vector>
 
-export module hydro:fields;
+export module hydrocarbon:fields;
 export import :enums;
 export import :util;
 
@@ -163,6 +163,8 @@ public:
 
     URL(const char *url) : URL(std::string_view{url, std::strlen(url)}) {}
 
+    URL(std::string url) : URL(std::string_view{url}) {};
+
     URL(std::string_view url)
     {
         if (url.empty())
@@ -285,7 +287,7 @@ public:
             code_str = line.substr(space1 + 1);
         }
 
-        auto res = std::from_chars(code_str.begin(), code_str.end(), code);
+        auto res = std::from_chars(code_str.data(), code_str.data() + code_str.size(), code);
         if (res.ec != std::errc{}) {
             code = 0;
             return;

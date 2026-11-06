@@ -7,7 +7,7 @@ module;
 #include <cctype>
 #include <string_view>
 
-export module hydro:util;
+export module hydrocarbon:util;
 
 export namespace hydro::util
 {

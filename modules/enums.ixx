@@ -7,7 +7,7 @@ module;
 #include <string>
 #include <string_view>
 
-export module hydro:enums;
+export module hydrocarbon:enums;
 
 export namespace hydro
 {

@@ -1,0 +1,128 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Generate Build Matrix
+        id: matrix
+        run: |
+          echo "matrix=$(./.ci/matrix.sh)" >> "$GITHUB_OUTPUT"
+          .ci/matrix.sh
+
+  build:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.matrix) }}
+
+    name: "${{ matrix.name }} ${{ matrix.program }} ${{ matrix.arch }}${{ matrix.refl == true && ' Reflection' || '' }}"
+    runs-on: ${{ matrix.runs-on }}
+    container: ${{ matrix.container }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.msystem && 'msys2 {0}' || 'bash' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          if command -v pacman 2>&1 > /dev/null; then
+            pacman -Syu --noconfirm --needed cmake ninja ${{ matrix.program }}
+          elif command -v apt 2>&1 >/dev/null; then
+            apt update
+            apt install -y cmake ninja-build libssl-dev
+
+            case "${{ matrix.program }}" in
+              gcc) apt install -y gcc g++ ;;
+              gcc-16) apt install -y gcc-16 g++-16 ;;
+              clang) apt install -y clang ;;
+              clang-19) apt install -y clang-19 ;;
+            esac
+          fi
+
+      - name: Install Packages (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install llvm cmake ninja
+
+      - name: Setup MSYS2
+        if: matrix.msystem
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          pacboy: >-
+            toolchain:p cmake:p ninja:p clang:p
+
+      - name: Setup MSVC
+        if: matrix.program == 'clang-cl' || matrix.program == 'msvc'
+        uses: crueter/setup-msvc-dev@master
+
+      - name: Install CMake and Ninja
+        if: matrix.program == 'clang-cl' || matrix.program == 'msvc'
+        uses: lukka/get-cmake@latest
+
+      - name: Install LLVM/Clang
+        if: matrix.program == 'clang-cl'
+        uses: Nerixyz/install-llvm-action@feat/new-llvm-versions
+        with:
+          version: 23
+          env: true
+
+      - name: Configure
+        run: |
+          case "${{ matrix.program }}" in
+            # gcc is already default where needed
+            msvc|gcc) ;;
+            gcc-16)
+              cc=gcc-16
+              cxx=g++-16 ;;
+            clang-cl)
+              cc=clang-cl
+              cxx=clang-cl ;;
+            clang|appleclang)
+              cc=clang
+              cxx=clang++ ;;
+            clang-19)
+              cc=clang-19
+              cxx=clang++-19 ;;
+            brew-clang)
+              p="$(brew --prefix llvm)/bin"
+              cc="${p}/clang"
+              cxx="${p}/clang++" ;;
+          esac
+
+          refl=OFF
+          if [ "${{ matrix.refl }}" = "true" ]; then
+            refl=ON
+          fi
+
+          if [ -n "$cc" ] && [ -n "$cxx" ]; then
+            set -- "-DCMAKE_C_COMPILER=$cc" "-DCMAKE_CXX_COMPILER=$cxx"
+          fi
+
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -G Ninja "$@"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
