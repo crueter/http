@@ -4,9 +4,9 @@ module;
 #include <cstdint>
 #include <string_view>
 
-export module http:util;
+export module hydro:util;
 
-export namespace http::util
+export namespace hydro::util
 {
 
 // Case sensitive string comparison.
@@ -39,4 +39,4 @@ inline bool icontains(std::string_view haystack, std::string_view needle)
     return false;
 }
 
-} // namespace http::util
+} // namespace hydro::util

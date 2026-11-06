@@ -33,10 +33,10 @@ module;
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
 
-export module http:socket;
+export module hydro:socket;
 export import :fields;
 
-namespace http
+namespace hydro
 {
 // shared ssl context
 class SSLContext {
@@ -87,11 +87,11 @@ void free_ssl(SSL *s)
     }
 }
 
-}; // namespace http
+}; // namespace hydro
 
-using RAII_SSL = std::unique_ptr<SSL, decltype(&http::free_ssl)>;
+using RAII_SSL = std::unique_ptr<SSL, decltype(&hydro::free_ssl)>;
 
-export namespace http
+export namespace hydro
 {
 
 // headers bigger than this are concerning
@@ -232,7 +232,7 @@ public:
     }
 
     // Connect to a URL and return the connected socket.
-    [[nodiscard]] std::expected<void, Error> connect(const http::URL &url,
+    [[nodiscard]] std::expected<void, Error> connect(const hydro::URL &url,
                                                      const ConnectOptions &opts = {})
     {
         struct addrinfo hints = {};
@@ -531,7 +531,7 @@ public:
     std::expected<Response, Error> readAll()
     {
         std::string body;
-        auto cb = [&body](const http::DownloadState &state) {
+        auto cb = [&body](const hydro::DownloadState &state) {
             body += state.buffer;
             return true;
         };
@@ -571,4 +571,4 @@ public:
     }
 };
 
-}; // namespace http
+}; // namespace hydro

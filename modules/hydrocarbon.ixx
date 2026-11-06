@@ -1,67 +1,66 @@
 module;
 
-#include <print>
 #include <string>
 #include <expected>
 #include <format>
 #include <string_view>
 
-export module http;
+export module hydro;
 export import :socket;
 
-static inline constexpr bool isRedirect(http::Status status) {
+static inline constexpr bool isRedirect(hydro::Status status) {
     switch (status) {
-        case http::Status::MovedPermanently:
-        case http::Status::Found:
-        case http::Status::SeeOther:
-        case http::Status::TemporaryRedirect:
-        case http::Status::PermanentRedirect:
+        case hydro::Status::MovedPermanently:
+        case hydro::Status::Found:
+        case hydro::Status::SeeOther:
+        case hydro::Status::TemporaryRedirect:
+        case hydro::Status::PermanentRedirect:
             return true;
         default:
             return false;
     }
 }
 
-static inline http::URL resolveLocation(const http::URL &url, std::string_view location) {
+static inline hydro::URL resolveLocation(const hydro::URL &url, std::string_view location) {
     // absolute URL
     if (location.find("://")) {
-        return http::URL(location);
+        return hydro::URL(location);
     }
 
     // relative URL
     const auto hostpart = url.hostpart();
     const auto newUrl = std::format("{}{}", hostpart, location);
-    return http::URL(newUrl);
+    return hydro::URL(newUrl);
 }
 
 // Downgrade POST/etc. to GET and remove body if the response code calls for such.
-static inline void modifyMethod(std::string &method, std::string &body, http::Status status,
+static inline void modifyMethod(std::string &method, std::string &body, hydro::Status status,
                                 bool preserve)
 {
     switch (status) {
-    case http::Status::MovedPermanently:
-    case http::Status::Found:
+    case hydro::Status::MovedPermanently:
+    case hydro::Status::Found:
         // move to GET and clear body
         if (preserve && method != "GET" && method != "HEAD") {
             method = "GET";
             body.clear();
         }
         break;
-    case http::Status::SeeOther:
+    case hydro::Status::SeeOther:
         if (method != "HEAD") {
             method = "GET";
             body.clear();
         }
         break;
-    case http::Status::TemporaryRedirect:
-    case http::Status::PermanentRedirect:
+    case hydro::Status::TemporaryRedirect:
+    case hydro::Status::PermanentRedirect:
         break;
     default:
         break;
     }
 }
 
-export namespace http
+export namespace hydro
 {
 
 struct RedirectOptions {
@@ -141,8 +140,8 @@ std::expected<Response, Error> performOnce(Socket &s, std::string_view method, c
 
 std::expected<Response, Error> perform(std::string_view method, const URL &url, const RequestOptions &opts = {}) {
     std::string curMethod{method};
-    http::URL curUrl{url};
-    http::RequestOptions curOpts{opts};
+    hydro::URL curUrl{url};
+    hydro::RequestOptions curOpts{opts};
     int count = 0;
 
     while (true) {
@@ -193,4 +192,4 @@ std::expected<Response, Error> perform_delete(const URL &url, const RequestOptio
     return perform("DELETE", url, opts);
 }
 
-} // namespace http
+} // namespace hydro

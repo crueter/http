@@ -12,11 +12,11 @@ module;
 #include <unordered_map>
 #include <vector>
 
-export module http:fields;
+export module hydro:fields;
 export import :enums;
 export import :util;
 
-export namespace http
+export namespace hydro
 {
 
 // Represents the current state of downloading.
@@ -366,13 +366,13 @@ public:
     }
 };
 
-} // namespace http
+} // namespace hydro
 
 export {
 
     template <>
-    struct std::formatter<http::URL> : std::formatter<std::string> {
-        auto format(const http::URL &u, std::format_context &ctx) const
+    struct std::formatter<hydro::URL> : std::formatter<std::string> {
+        auto format(const hydro::URL &u, std::format_context &ctx) const
         {
             return std::format_to(ctx.out(), "{}{}{}", u.hostpart(), u.route, u.params.str);
         }

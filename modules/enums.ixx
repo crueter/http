@@ -4,9 +4,9 @@ module;
 #include <string>
 #include <string_view>
 
-export module http:enums;
+export module hydro:enums;
 
-export namespace http
+export namespace hydro
 {
 
 // Basic API
@@ -147,54 +147,54 @@ struct ConnectOptions {
     bool disableSsl = false;
 };
 
-} // namespace http
+} // namespace hydro
 
 // formatter specs
 export {
 
     template <>
-    struct std::formatter<http::Error> : std::formatter<std::string_view> {
-        auto format(const http::Error e, std::format_context &ctx) const
+    struct std::formatter<hydro::Error> : std::formatter<std::string_view> {
+        auto format(const hydro::Error e, std::format_context &ctx) const
         {
             std::string_view name;
             switch (e) {
-            case http::Error::Success:
+            case hydro::Error::Success:
                 name = "No error";
                 break;
-            case http::Error::DNSFailure:
+            case hydro::Error::DNSFailure:
                 name = "DNS lookup failure";
                 break;
-            case http::Error::SocketCreate:
+            case hydro::Error::SocketCreate:
                 name = "OS failed to create socket";
                 break;
-            case http::Error::ConnectFailed:
+            case hydro::Error::ConnectFailed:
                 name = "Failed to connect to host";
                 break;
-            case http::Error::TLSCtx:
+            case hydro::Error::TLSCtx:
                 name = "Failed to initialize TLS context";
                 break;
-            case http::Error::TLSInit:
+            case hydro::Error::TLSInit:
                 name = "Failed to initialize TLS state";
                 break;
-            case http::Error::TLSCert:
+            case hydro::Error::TLSCert:
                 name = "Server returned no or invalid certificate";
                 break;
-            case http::Error::TLSVerify:
+            case hydro::Error::TLSVerify:
                 name = "Failed to verify server certificate";
                 break;
-            case http::Error::InvalidCert:
+            case hydro::Error::InvalidCert:
                 name = "Invalid custom certificate passed";
                 break;
-            case http::Error::SendFailed:
+            case hydro::Error::SendFailed:
                 name = "Connection closed or failed during send";
                 break;
-            case http::Error::ReadFailed:
+            case hydro::Error::ReadFailed:
                 name = "Connection closed or failed during read";
                 break;
-            case http::Error::InvalidChunk:
+            case hydro::Error::InvalidChunk:
                 name = "Invalid or malformed chunk data received";
                 break;
-            case http::Error::HeaderTooBig:
+            case hydro::Error::HeaderTooBig:
                 name = "Response header is too large";
                 break;
             }

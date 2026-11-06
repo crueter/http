@@ -1,8 +1,8 @@
 #include <print>
 
-import http;
+import hydro;
 
-void printUrl(const http::URL &u)
+void printUrl(const hydro::URL &u)
 {
     std::println("Hostname: {}", u.hostname);
     std::println("Port: {}", u.port);
@@ -23,14 +23,14 @@ int main()
     //     std::println("Payload:\n{}", r->body.data);
     // }
 
-    http::URL u = "https://webhook.crueter.xyz:8080/forgejo?param1=123&param2=hi";
+    hydro::URL u = "https://webhook.crueter.xyz:8080/forgejo?param1=123&param2=hi";
     std::println("URL: {}", u);
     // printUrl(u);
 
     // // oneshot read
     // {
-    //     http::URL example = "http://httpbin.org";
-    //     http::Socket s(example);
+    //     hydro::URL example = "http://httpbin.org";
+    //     hydro::Socket s(example);
 
     //     if (s.isValid()) {
     //         std::println("Connect to http://httpbin.org succeeded");
@@ -61,8 +61,8 @@ int main()
 
     // callback read
     // {
-    //     http::URL example = "https://www.google.com";
-    //     http::Socket s;
+    //     hydro::URL example = "https://www.google.com";
+    //     hydro::Socket s;
     //     {
     //         auto ec = s.connect(example);
     //         if (!ec) {
@@ -106,7 +106,7 @@ int main()
 
     // straight-body test
     {
-        auto ec = http::get("https://www.google.com/");
+        auto ec = hydro::get("https://www.google.com/");
         if (!ec) {
             std::println("Error: {}", ec.error());
         } else {
@@ -117,7 +117,7 @@ int main()
 
     // callback test
     {
-        const auto func = [](const http::DownloadState &state) {
+        const auto func = [](const hydro::DownloadState &state) {
             std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
                          state.content_length, state.bytes_left);
 
@@ -126,7 +126,7 @@ int main()
             return true;
         };
 
-        auto ec = http::get("https://www.google.com/", {.callback = func});
+        auto ec = hydro::get("https://www.google.com/", {.callback = func});
         if (!ec) {
             std::println("Error: {}", ec.error());
         } else {
@@ -137,7 +137,7 @@ int main()
 
     // HEAD
     {
-        auto ec = http::head("https://www.google.com/");
+        auto ec = hydro::head("https://www.google.com/");
         if (!ec) {
             std::println("Error: {}", ec.error());
         } else {
@@ -148,10 +148,10 @@ int main()
 
     // POST
     {
-        http::RequestOptions opts;
+        hydro::RequestOptions opts;
         opts.body = "POST Request body, should be returned verbatim.";
 
-        auto ec = http::post("https://httpbin.org/post", opts);
+        auto ec = hydro::post("https://httpbin.org/post", opts);
         if (!ec) {
             std::println("Error: {}", ec.error());
         } else {
@@ -162,11 +162,11 @@ int main()
 
     // PUT
     {
-        http::RequestOptions opts;
+        hydro::RequestOptions opts;
         opts.body = "PUT Request body, should be returned verbatim.";
         opts.headers.add("X-Random-Header", "RandomValue");
 
-        auto ec = http::put("https://httpbin.org/put", opts);
+        auto ec = hydro::put("https://httpbin.org/put", opts);
         if (!ec) {
             std::println("Error: {}", ec.error());
         } else {
@@ -178,7 +178,7 @@ int main()
 
     // OPTIONS
     {
-        auto ec = http::options("https://httpbin.org/options");
+        auto ec = hydro::options("https://httpbin.org/options");
         if (!ec) {
             std::println("Error: {}", ec.error());
         } else {
@@ -196,7 +196,7 @@ int main()
     // redirect
     {
         // TODO: URL encoding
-        auto ec = http::get("https://httpbin.org/redirect-to?url=http://httpbin.org");
+        auto ec = hydro::get("https://httpbin.org/redirect-to?url=http://httpbin.org");
 
         if (!ec) {
             std::println("Error: {}", ec.error());
