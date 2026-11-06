@@ -235,24 +235,24 @@ public:
     // <protocol>://<hostname>[:port]
     std::string hostpart() const
     {
-        std::string port_str, protocol_str;
+        std::string portStr, protocolStr;
 
         switch (protocol) {
         case Protocol::NoProtocol:
-            protocol_str = "";
-            port_str = port_str;
+            protocolStr = "";
+            portStr = port_str;
             break;
         case Protocol::HTTP:
-            protocol_str = "http://";
-            port_str = port == 80 ? "" : std::format(":{}", port_str);
+            protocolStr = "http://";
+            portStr = port == 80 ? "" : std::format(":{}", port_str);
             break;
         case Protocol::HTTPS:
-            protocol_str = "https://";
-            port_str = port == 443 ? "" : std::format(":{}", port_str);
+            protocolStr = "https://";
+            portStr = port == 443 ? "" : std::format(":{}", port_str);
             break;
         }
 
-        return std::format("{}{}{}", protocol_str, hostname, port_str);
+        return std::format("{}{}{}", protocolStr, hostname, port_str);
     }
 };
 
