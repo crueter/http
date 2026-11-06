@@ -12,7 +12,7 @@ module;
 #include <sys/types.h>
 #include <unistd.h>
 
-#define closesocket(s) close(s);
+#define closesocket(s) close(s)
 
 #elif defined(WIN32_LEAN_AND_MEAN) || defined(_WIN32) || defined(WIN32)
 
@@ -24,14 +24,87 @@ module;
 #error "unsupported platform"
 #endif
 
+// SSL stuff
+#ifndef REQUESTS_NO_TLS
+
+#include <openssl/ssl.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/crypto.h>
+#include <openssl/tls1.h>
+
+#endif // #ifndef REQUESTS_NO_TLS
+
 export module http:socket;
 export import :fields;
+
 
 export namespace http
 {
 
+// shared ssl context
+class SSLContext {
+private:
+    SSL_CTX *ctx;
+
+    SSLContext() = default;
+
+public:
+    SSLContext(const SSLContext &) = delete;
+    SSLContext &operator=(const SSLContext &) = delete;
+
+    ~SSLContext()
+    {
+        if (ctx) {
+            SSL_CTX_free(ctx);
+            ctx = nullptr;
+        }
+    }
+
+    bool init()
+    {
+        if (!ctx) {
+            ctx = SSL_CTX_new(TLS_client_method());
+            SSL_CTX_set_default_verify_paths(ctx);
+        }
+
+        return ctx != nullptr;
+    }
+
+    SSL_CTX *get()
+    {
+        init();
+        return ctx;
+    }
+
+    static SSLContext &ssl_context()
+    {
+        static SSLContext instance;
+        return instance;
+    }
+};
+
 class Socket {
     int m_fd = -1;
+
+    SSL *m_ssl;
+
+    ssize_t internal_recv(char *buf, std::size_t n) {
+        if (m_ssl) {
+            return SSL_read(m_ssl, buf, n);
+        }
+
+        return ::recv(m_fd, buf, n, 0);
+    }
+
+    ssize_t internal_send(char *buf, std::size_t n) {
+        if (m_ssl) {
+            return SSL_write(m_ssl, buf, n);
+        }
+
+        return ::send(m_fd, buf, n, 0);
+    }
 
 public:
     explicit Socket(int fd) : m_fd(fd) {}
@@ -40,6 +113,11 @@ public:
     {
         if (m_fd >= 0)
             closesocket(m_fd);
+
+        if (m_ssl) {
+            SSL_shutdown(m_ssl);
+            SSL_free(m_ssl);
+        }
     }
 
     Socket(const Socket &) = delete;
@@ -104,6 +182,38 @@ public:
 
         freeaddrinfo(hostinfo);
         m_fd = fd;
+
+        // tls
+        if (url.protocol == Protocol::HTTPS) {
+            m_ssl = SSL_new(SSLContext::ssl_context().get());
+            if (!m_ssl) {
+                std::println(stderr, "Failed to init ssl");
+                // TODO: better error logging
+                return;
+            }
+            // TODO: custom cert
+
+            SSL_set_fd(m_ssl, m_fd);
+            SSL_set_tlsext_host_name(m_ssl, url.hostname.c_str());
+
+            if (SSL_connect(m_ssl)) {
+                SSL_set_verify(m_ssl, SSL_VERIFY_PEER, nullptr);
+                auto cert = SSL_get_peer_certificate(m_ssl);
+                if (!cert) {
+                    std::println(stderr, "Failed to get cert");
+                    // TODO: better error logging
+                    return;
+                }
+                X509_free(cert);
+
+                auto verify_res = SSL_get_verify_result(m_ssl);
+                if (verify_res != X509_V_OK) {
+                    std::println(stderr, "Failed to verify res, err={}", verify_res);
+                    // TODO: better error logging
+                    return;
+                }
+            }
+        }
     }
 
     // Send a formatted string to the socket.
@@ -116,7 +226,7 @@ public:
         size_t offset = 0;
 
         while (bytes_left > 0) {
-            ssize_t sent = ::send(m_fd, formatted.data() + offset, bytes_left, 0);
+            ssize_t sent = internal_send(formatted.data() + offset, bytes_left);
             if (sent <= 0)
                 break;
 
@@ -130,7 +240,7 @@ public:
         const std::size_t max_bytes = bytes > 0 ? bytes: (buffer.size() > 0 ? buffer.size() - 1 : 4096);
         buffer.resize(max_bytes);
 
-        ssize_t size = ::recv(m_fd, buffer.data(), max_bytes, 0);
+        ssize_t size = internal_recv(buffer.data(), max_bytes);
         if (size > 0) {
             buffer.resize(size);
         } else {
@@ -142,7 +252,7 @@ public:
 
     // Receive a single character.
     ssize_t recv(char &buffer) {
-        auto size = ::recv(m_fd, &buffer, 1, 0);
+        auto size = internal_recv(&buffer, 1);
         return size;
     }
 

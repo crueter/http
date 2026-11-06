@@ -60,7 +60,7 @@ int main()
 
     // callback read
     {
-        http::URL example = "http://localhost:8080";
+        http::URL example = "https://www.google.com";
         http::Socket s(example);
 
         if (s.isValid()) {
