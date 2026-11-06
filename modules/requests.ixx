@@ -9,8 +9,38 @@ module;
 export module http;
 export import :socket;
 
+static inline constexpr bool isRedirect(http::Status status) {
+    switch (status) {
+        case http::Status::MovedPermanently:
+        case http::Status::Found:
+        case http::Status::SeeOther:
+        case http::Status::TemporaryRedirect:
+        case http::Status::PermanentRedirect:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static inline http::URL resolveLocation(const http::URL &url, std::string_view location) {
+    // absolute URL
+    if (location.find("://")) {
+        return http::URL(location);
+    }
+
+    // relative URL
+    const auto hostpart = url.hostpart();
+    const auto newUrl = std::format("{}{}", hostpart, location);
+    return http::URL(newUrl);
+}
+
 export namespace http
 {
+
+struct RedirectOptions {
+    bool follow = true;
+    int maxRedirects = 5;
+};
 
 struct RequestOptions {
     Version version = Version::HTTP_1_1;
@@ -18,11 +48,11 @@ struct RequestOptions {
     std::string body;
     UserCallback callback;
     ConnectOptions connect;
+    RedirectOptions redirect;
 };
 
-std::expected<Response, Error> perform(std::string_view method, const URL &url, const RequestOptions &opts = {}) {
-    Socket s;
-
+// single-shot perform that doesn't follow redirs
+std::expected<Response, Error> performOnce(Socket &s, std::string_view method, const URL &url, const RequestOptions &opts = {}) {
     // connect
     {
         auto ec = s.connect(url, opts.connect);
@@ -34,7 +64,7 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url, 
 
     // construct data to send
     const auto version = opts.version == Version::HTTP_1_0 ? "HTTP/1.0" : "HTTP/1.1";
-    const auto line1 = std::format("{} {} {}", method, url.route, version);
+    const auto line1 = std::format("{} {}{} {}", method, url.route, url.params.str, version);
 
     // default ua/host
     if (!headers.contains("user-agent")) {
@@ -76,6 +106,29 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url, 
         return s.readCallback(opts.callback);
     } else {
         return s.readAll();
+    }
+}
+
+std::expected<Response, Error> perform(std::string_view method, const URL &url, const RequestOptions &opts = {}) {
+    std::string curMethod{method};
+    http::URL curUrl{url};
+    int count = 0;
+
+    // TODO handle 303, turn post into get
+    while (true) {
+        Socket s;
+        auto r = performOnce(s, curMethod, curUrl, opts);
+        if (!r) return r;
+
+        // handle redirects
+        auto loc = r->header.get("location");
+        if (count < opts.redirect.maxRedirects && isRedirect(r->status_code) && loc.has_value()) {
+            curUrl = resolveLocation(curUrl, loc.value());
+            ++count;
+            continue;
+        }
+
+        return r.value();
     }
 }
 

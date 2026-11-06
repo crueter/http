@@ -28,6 +28,7 @@ enum class Status {
     MultiStatus = 207,
     AlreadyReported = 208,
     ImUsed = 226,
+
     MultipleChoices = 300,
     MovedPermanently = 301,
     Found = 302,

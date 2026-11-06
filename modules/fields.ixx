@@ -226,6 +226,28 @@ public:
             }
         }
     }
+
+    // <protocol>://<hostname>[:port]
+    std::string hostpart() const {
+        std::string port_str, protocol_str;
+
+        switch (protocol) {
+        case Protocol::NoProtocol:
+            protocol_str = "";
+            port_str = port_str;
+            break;
+        case Protocol::HTTP:
+            protocol_str = "http://";
+            port_str = port == 80 ? "" : std::format(":{}", port_str);
+            break;
+        case Protocol::HTTPS:
+            protocol_str = "https://";
+            port_str = port == 443 ? "" : std::format(":{}", port_str);
+            break;
+        }
+
+        return std::format("{}{}{}", protocol_str, hostname, port_str);
+    }
 };
 
 // Represents a response from a server.
@@ -352,25 +374,7 @@ export {
     struct std::formatter<http::URL> : std::formatter<std::string> {
         auto format(const http::URL &u, std::format_context &ctx) const
         {
-            std::string port, protocol;
-
-            switch (u.protocol) {
-            case http::Protocol::NoProtocol:
-                protocol = "";
-                port = u.port_str;
-                break;
-            case http::Protocol::HTTP:
-                protocol = "http://";
-                port = u.port == 80 ? "" : std::format(":{}", u.port_str);
-                break;
-            case http::Protocol::HTTPS:
-                protocol = "https://";
-                port = u.port == 443 ? "" : std::format(":{}", u.port_str);
-                break;
-            }
-
-            return std::format_to(ctx.out(), "{}{}{}{}{}", protocol, u.hostname, port, u.route,
-                                  u.params.str);
+            return std::format_to(ctx.out(), "{}{}{}", u.hostpart(), u.route, u.params.str);
         }
     };
 }

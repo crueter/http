@@ -192,4 +192,17 @@ int main()
             }
         }
     }
+
+    // redirect
+    {
+        // TODO: URL encoding
+        auto ec = http::get("https://httpbin.org/redirect-to?url=http://httpbin.org");
+
+        if (!ec) {
+            std::println("Error: {}", ec.error());
+        } else {
+            auto r = ec.value();
+            std::println("Request succeeded. Body size={}", r.body.size());
+        }
+    }
 }
