@@ -287,7 +287,7 @@ public:
             code_str = line.substr(space1 + 1);
         }
 
-        auto res = std::from_chars(code_str.begin(), code_str.end(), code);
+        auto res = std::from_chars(code_str.data(), code_str.data() + code_str.size(), code);
         if (res.ec != std::errc{}) {
             code = 0;
             return;
