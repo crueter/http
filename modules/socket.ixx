@@ -36,6 +36,7 @@ module;
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
+#include <openssl/opensslv.h>
 
 export module hydrocarbon:socket;
 export import :fields;
@@ -312,7 +313,12 @@ public:
                 X509_free(cert);
                 BIO_free(bio);
             } else {
+// use winstore if available
+#if defined(_WIN32) && OPENSSL_VERSION_PREREQ(3, 2)
+                SSL_CTX_load_verify_store(ctx, "org.openssl.winstore://");
+#else
                 SSL_CTX_set_default_verify_paths(ctx);
+#endif
             }
 
             SSL_set_fd(ssl.get(), fd);
