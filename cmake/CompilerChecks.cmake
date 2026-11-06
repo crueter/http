@@ -18,7 +18,7 @@ if (id MATCHES "AppleClang")
 endif()
 
 # GCC must be 15+
-if (id MATCHES "GNU" AND ver VERSION_LESS 16)
+if (id MATCHES "GNU" AND ver VERSION_LESS 15)
     message(FATAL_ERROR "Unsupported GCC version ${ver}. Only 15 and up "
         "are supported.")
 endif()
