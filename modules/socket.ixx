@@ -9,6 +9,7 @@ module;
 #include <memory>
 #include <string>
 #include <utility>
+#include <charconv>
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <arpa/inet.h>
