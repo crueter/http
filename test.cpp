@@ -23,44 +23,44 @@ int main()
     //     std::println("Payload:\n{}", r->body.data);
     // }
 
-    http::URL u = "https://webhook.crueter.xyz:8080/forgejo?param1=123&param2=hi";
-    printUrl(u);
+    // http::URL u = "https://webhook.crueter.xyz:8080/forgejo?param1=123&param2=hi";
+    // printUrl(u);
 
-    // oneshot read
-    {
-        http::URL example = "http://httpbin.org";
-        http::Socket s(example);
+    // // oneshot read
+    // {
+    //     http::URL example = "http://httpbin.org";
+    //     http::Socket s(example);
 
-        if (s.isValid()) {
-            std::println("Connect to http://httpbin.org succeeded");
-        } else {
-            std::println("Connect to http://httpbin.org failed");
-            return 1;
-        }
+    //     if (s.isValid()) {
+    //         std::println("Connect to http://httpbin.org succeeded");
+    //     } else {
+    //         std::println("Connect to http://httpbin.org failed");
+    //         return 1;
+    //     }
 
-        s.send("GET {} HTTP/1.1\r\n", example.route);
-        s.send("Host: {}\r\n", example.hostname);
-        s.send("User-Agent: curl/8.22.0\r\n");
-        s.send("Connection: close\r\n\r\n");
+    //     s.send("GET {} HTTP/1.1\r\n", example.route);
+    //     s.send("Host: {}\r\n", example.hostname);
+    //     s.send("User-Agent: curl/8.22.0\r\n");
+    //     s.send("Connection: close\r\n\r\n");
 
-        auto r = s.readAll();
+    //     auto r = s.readAll();
 
-        std::println("Status: {} {}", int(r.status_code), r.reason);
-        std::println("Headers:");
+    //     std::println("Status: {} {}", int(r.status_code), r.reason);
+    //     std::println("Headers:");
 
-        for (const auto &[k, v] : r.header.entries()) {
-            std::println("  {} = {}", k, v);
-        }
+    //     for (const auto &[k, v] : r.header.entries()) {
+    //         std::println("  {} = {}", k, v);
+    //     }
 
-        // std::println("Body:");
-        // std::println("{}", r.body);
+    //     // std::println("Body:");
+    //     // std::println("{}", r.body);
 
-        std::println("Body size: {}", r.body.size());
-    }
+    //     std::println("Body size: {}", r.body.size());
+    // }
 
     // callback read
     {
-        http::URL example = "http://httpbin.org";
+        http::URL example = "http://localhost:8080";
         http::Socket s(example);
 
         if (s.isValid()) {
@@ -75,10 +75,12 @@ int main()
         s.send("User-Agent: curl/8.22.0\r\n");
         s.send("Connection: close\r\n\r\n");
 
+        std::string body;
         const auto func = [](const http::DownloadState &state) {
             std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
                          state.content_length, state.bytes_left);
 
+            // std::println("Body fragment:\n{}", state.buffer);
 
             return true;
         };

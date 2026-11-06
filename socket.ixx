@@ -127,7 +127,16 @@ public:
 
     // Receive into a buffer.
     ssize_t recv(std::string &buffer, std::size_t bytes = 0) {
-        auto size = ::recv(m_fd, buffer.data(), bytes > 0 ? bytes : (buffer.size() - 1), 0);
+        const std::size_t max_bytes = bytes > 0 ? bytes: (buffer.size() > 0 ? buffer.size() - 1 : 4096);
+        buffer.resize(max_bytes);
+
+        ssize_t size = ::recv(m_fd, buffer.data(), max_bytes, 0);
+        if (size > 0) {
+            buffer.resize(size);
+        } else {
+            buffer.clear();
+        }
+
         return size;
     }
 
@@ -170,29 +179,139 @@ public:
 
         r.body = body;
 
-        std::println("Body size: {}", body.size());
         return r;
     }
 
-    // Read with a callback.
-    Response readCallback(const UserCallback &cb) {
-        // TODO: Chunked.
-        Response r = readHeaders();
-
+    // Sized transfer.
+    void readSized(Response &r, const UserCallback &cb) {
         // account for ending byte
-        std::size_t len = r.contentLength() + 1;
+        std::size_t len = r.contentLength();
         std::size_t read = r.body.size();
         cb({read, len - read, r.body.substr(0, read), len, r.status_code});
 
         std::string buf;
-        buf.resize(4096);
 
         ssize_t size;
-        while (read < len && (size = recv(buf)) > 0) {
+        while (read < len && (size = recv(buf, 4096)) > 0) {
             read += size;
-            auto res = cb({read, len - read, buf.substr(0, size), len, r.status_code});
+            auto res = cb({read, len - read, buf, len, r.status_code});
             if (!res)
                 break;
+        }
+    }
+
+    // Chunked transfer.
+    void readChunked(Response &r, const UserCallback &cb) {
+        // length is unknown
+        std::size_t read = r.body.size();
+        std::string buf = r.body;
+        bool finished = false;
+
+        std::println("Body size {}", read);
+
+        // read a full line until \r\n, recv'ing if needed
+        const auto readLine = [this, &buf]() -> std::string {
+            while (true) {
+                auto pos = buf.find("\r\n");
+
+                // grab and return line, remove from buf
+                if (pos != std::string::npos) {
+                    auto line = buf.substr(0, pos);
+                    buf.erase(0, pos + 2);
+                    return line;
+                }
+
+                // need more socket data
+                std::string tmp;
+                if (recv(tmp, 1024) <= 0)
+                    break;
+                buf += tmp;
+            }
+
+            return "";
+        };
+
+        while (!finished) {
+            // read hex size
+            auto size_str = readLine();
+            std::println("Pre-Read size: {}", size_str);
+
+            if (size_str.empty()) break;
+
+            std::println("Read size: {}", size_str);
+
+            // strip chunk exts
+            auto semi_pos = size_str.find(';');
+            if (semi_pos != std::string::npos) {
+                size_str = size_str.substr(0, semi_pos);
+            }
+
+            // extract chunk size as a number
+            std::size_t size = 0;
+            auto [ptr, ec] =
+                std::from_chars(size_str.data(), size_str.data() + size_str.size(), size, 16);
+
+            // malformed response
+            if (ec != std::errc{}) {
+                break;
+            }
+
+            std::println("  Chunk size: {}", size);
+
+            // end of data, aka zero size chunk
+            if (size == 0) {
+                while (!readLine().empty()) {}
+                finished = true;
+                break;
+            }
+
+            // now read (+2 for crlf)
+            std::size_t target = size + 2;
+            while (buf.size() < target) {
+                std::string tmp;
+
+                // recv needed bytes and append
+                if (recv(tmp, target - buf.size()) <= 0) {
+                    finished = true;
+                    break;
+                }
+
+                buf += tmp;
+            }
+
+            // connection dropped mid chunk
+            if (buf.size() < target)
+                break;
+
+            // get actual chunk data
+            std::string data = buf.substr(0, size);
+            buf.erase(0, target);
+
+            read += size;
+
+            // we dunno total length, so ignore those fields
+            auto res = cb({read, 0, data, 0, r.status_code});
+            if (!res)
+                break;
+
+        }
+    }
+
+    // Read with a callback.
+    Response readCallback(const UserCallback &cb) {
+        Response r = readHeaders();
+
+        std::println("Transfer mode: {}", (int) r.transferMode);
+
+        switch (r.transferMode) {
+        case TransferMode::Sized:
+            readSized(r, cb);
+            break;
+        case TransferMode::Chunked:
+            readChunked(r, cb);
+            break;
+        case TransferMode::NoData:
+            break;
         }
 
         return r;
