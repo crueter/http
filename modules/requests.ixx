@@ -34,12 +34,42 @@ static inline http::URL resolveLocation(const http::URL &url, std::string_view l
     return http::URL(newUrl);
 }
 
+// Downgrade POST/etc. to GET and remove body if the response code calls for such.
+static inline void modifyMethod(std::string &method, std::string &body, http::Status status,
+                                bool preserve)
+{
+    switch (status) {
+    case http::Status::MovedPermanently:
+    case http::Status::Found:
+        // move to GET and clear body
+        if (preserve && method != "GET" && method != "HEAD") {
+            method = "GET";
+            body.clear();
+        }
+        break;
+    case http::Status::SeeOther:
+        if (method != "HEAD") {
+            method = "GET";
+            body.clear();
+        }
+        break;
+    case http::Status::TemporaryRedirect:
+    case http::Status::PermanentRedirect:
+        break;
+    default:
+        break;
+    }
+}
+
 export namespace http
 {
 
 struct RedirectOptions {
     bool follow = true;
     int maxRedirects = 5;
+
+    // preserve method type for 301/302
+    bool preserveMethod = false;
 };
 
 struct RequestOptions {
@@ -112,17 +142,19 @@ std::expected<Response, Error> performOnce(Socket &s, std::string_view method, c
 std::expected<Response, Error> perform(std::string_view method, const URL &url, const RequestOptions &opts = {}) {
     std::string curMethod{method};
     http::URL curUrl{url};
+    http::RequestOptions curOpts{opts};
     int count = 0;
 
-    // TODO handle 303, turn post into get
     while (true) {
         Socket s;
         auto r = performOnce(s, curMethod, curUrl, opts);
         if (!r) return r;
 
         // handle redirects
+        // TODO: need a test suite for 303 etc
         auto loc = r->header.get("location");
         if (count < opts.redirect.maxRedirects && isRedirect(r->status_code) && loc.has_value()) {
+            modifyMethod(curMethod, curOpts.body, r->status_code, opts.redirect.preserveMethod);
             curUrl = resolveLocation(curUrl, loc.value());
             ++count;
             continue;
