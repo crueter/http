@@ -572,4 +572,27 @@ public:
     }
 };
 
+// winsock initializer
+// adapted from cpp-httplib
+#ifdef _WIN32
+class WSInit {
+public:
+    WSInit()
+    {
+        WSADATA wsaData;
+        m_isValid = (WSAStartup(0x0002, &wsaData) == 0);
+    }
+
+    ~WSInit()
+    {
+        if (m_isValid)
+            WSACleanup();
+    }
+
+    bool m_isValid = false;
+};
+
+static WSInit wsinit_;
+#endif
+
 }; // namespace hydro

@@ -8,7 +8,7 @@ module;
 export module hydro;
 export import :socket;
 
-static inline constexpr bool isRedirect(hydro::Status status)
+inline constexpr bool isRedirect(hydro::Status status)
 {
     switch (status) {
     case hydro::Status::MovedPermanently:
