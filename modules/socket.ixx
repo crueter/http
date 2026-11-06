@@ -389,45 +389,6 @@ public:
         return size;
     }
 
-    // Get all response headers.
-    [[nodiscard]] std::expected<Response, Error> readHeaders()
-    {
-        std::string data;
-        std::string buf;
-        buf.resize(shortReadSize);
-
-        // Read until header block is complete.
-        while (recv(buf) > 0) {
-            data.append(buf);
-            if (data.find("\r\n\r\n") != std::string_view::npos)
-                break;
-
-            // headers are gigantic, leave now before bad things happen.
-            if (data.size() > maxHeaderSize)
-                return std::unexpected(Error::HeaderTooBig);
-        }
-
-        // remaining body bytes will be left in the body field of the response
-        return Response{data};
-    }
-
-    // Read the headers and body in one shot.
-    std::expected<Response, Error> readAll()
-    {
-        std::string body;
-        auto cb = [&body](const http::DownloadState &state) {
-            body += state.buffer;
-            return true;
-        };
-
-        auto ec = readCallback(cb);
-        if (!ec) return ec;
-
-        auto r = ec.value();
-        r.body = body;
-        return r;
-    }
-
     // Sized transfer.
     void readSized(Response &r, const UserCallback &cb)
     {
@@ -542,6 +503,45 @@ public:
         }
 
         return {};
+    }
+
+        // Get all response headers.
+    [[nodiscard]] std::expected<Response, Error> readHeaders()
+    {
+        std::string data;
+        std::string buf;
+        buf.resize(shortReadSize);
+
+        // Read until header block is complete.
+        while (recv(buf) > 0) {
+            data.append(buf);
+            if (data.find("\r\n\r\n") != std::string_view::npos)
+                break;
+
+            // headers are gigantic, leave now before bad things happen.
+            if (data.size() > maxHeaderSize)
+                return std::unexpected(Error::HeaderTooBig);
+        }
+
+        // remaining body bytes will be left in the body field of the response
+        return Response{data};
+    }
+
+    // Read the headers and body in one shot.
+    std::expected<Response, Error> readAll()
+    {
+        std::string body;
+        auto cb = [&body](const http::DownloadState &state) {
+            body += state.buffer;
+            return true;
+        };
+
+        auto ec = readCallback(cb);
+        if (!ec) return ec;
+
+        auto r = ec.value();
+        r.body = body;
+        return r;
     }
 
     // Read with a callback.
