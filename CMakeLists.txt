@@ -17,7 +17,11 @@ add_library(http)
 
 target_sources(http PUBLIC
     FILE_SET http TYPE CXX_MODULES FILES
-    util.ixx requests.ixx fields.ixx enums.ixx socket.ixx)
+    modules/util.ixx
+    modules/requests.ixx
+    modules/fields.ixx
+    modules/enums.ixx
+    modules/socket.ixx)
 
 add_executable(test test.cpp)
 

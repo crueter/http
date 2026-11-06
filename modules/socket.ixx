@@ -203,7 +203,6 @@ public:
         return m_connected;
     }
 
-
     // Connect to a URL and return the connected socket.
     Socket(const http::URL &url)
     {
