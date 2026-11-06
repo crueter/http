@@ -260,7 +260,7 @@ public:
 class Response {
 public:
     std::string body;
-    Header header;
+    Header headers;
     std::string status_line;
     Status status_code = Status::NoStatusCode;
     std::string reason;
@@ -335,7 +335,7 @@ public:
                     while (!value.empty() && value.front() == ' ')
                         value.remove_prefix(1);
 
-                    header.add(key, value);
+                    headers.add(key, value);
                 }
             }
 
@@ -345,8 +345,8 @@ public:
         }
 
         // Chunked takes priority over sized.
-        const auto te = header.get("transfer-encoding");
-        const auto cl = header.get("content-length");
+        const auto te = headers.get("transfer-encoding");
+        const auto cl = headers.get("content-length");
         if (util::icontains(te.value_or(""), "chunked")) {
             transferMode = TransferMode::Chunked;
         } else if (cl.has_value()) {
@@ -359,7 +359,7 @@ public:
     // Header utilities.
     std::size_t contentLength()
     {
-        const auto cl = header.get("content-length");
+        const auto cl = headers.get("content-length");
         const auto str = cl.value_or("0");
 
         std::size_t res;

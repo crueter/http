@@ -88,7 +88,7 @@ int main()
             std::println("OPTIONS body: {}", r.body);
             std::println("OPTIONS returned headers:");
 
-            for (const auto &[k, v] : r.header.entries()) {
+            for (const auto &[k, v] : r.headers.entries()) {
                 std::println("  {}: {}", k, v);
             }
         }

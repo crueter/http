@@ -161,7 +161,7 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url,
 
         // handle redirects
         // TODO: need a test suite for 303 etc
-        auto loc = r->header.get("location");
+        auto loc = r->headers.get("location");
         if (count < opts.redirect.maxRedirects && isRedirect(r->status_code) && loc.has_value()) {
             modifyMethod(curMethod, curOpts.body, r->status_code, opts.redirect.preserveMethod);
             curUrl = resolveLocation(curUrl, loc.value());
