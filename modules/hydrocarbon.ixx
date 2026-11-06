@@ -87,6 +87,21 @@ struct RequestOptions {
 
 // single-shot perform that doesn't follow redirs
 std::expected<Response, Error> performOnce(Socket &s, std::string_view method, const URL &url,
+                                           const RequestOptions &opts = {});
+
+std::expected<Response, Error> perform(std::string_view method, const URL &url,
+                                       const RequestOptions &opts = {});
+
+std::expected<Response, Error> get(const URL &url, const RequestOptions &opts = {});
+std::expected<Response, Error> head(const URL &url, const RequestOptions &opts = {});
+std::expected<Response, Error> post(const URL &url, const RequestOptions &opts = {});
+std::expected<Response, Error> put(const URL &url, const RequestOptions &opts = {});
+std::expected<Response, Error> patch(const URL &url, const RequestOptions &opts = {});
+std::expected<Response, Error> options(const URL &url, const RequestOptions &opts = {});
+std::expected<Response, Error> perform_delete(const URL &url, const RequestOptions &opts = {});
+
+// single-shot perform that doesn't follow redirs
+std::expected<Response, Error> performOnce(Socket &s, std::string_view method, const URL &url,
                                            const RequestOptions &opts = {})
 {
     // connect
