@@ -60,55 +60,78 @@ int main()
     // }
 
     // callback read
+    // {
+    //     http::URL example = "https://www.google.com";
+    //     http::Socket s;
+    //     {
+    //         auto ec = s.connect(example);
+    //         if (!ec) {
+    //             std::println(stderr, "Error during connect: {}", ec.error());
+    //             std::exit(1);
+    //         }
+    //     }
+
+    //     {
+    //         auto ec = s.send("GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: curl/8.22.0\r\nConnection: close\r\n\r\n", example.route, example.hostname);
+    //         if (!ec) {
+    //             std::println("Error during send: {}", ec.error());
+    //             std::exit(1);
+    //         }
+    //     }
+
+    //     std::string body;
+
+    //     {
+    //         auto ec = s.readCallback(func);
+    //         if (!ec) {
+    //             std::println("Error during read: {}", ec.error());
+    //             std::exit(1);
+    //         }
+
+    //         const auto &r = ec.value();
+
+    //         std::println("Status: {} {}", int(r.status_code), r.reason);
+    //         std::println("Headers:");
+
+    //         for (const auto &[k, v] : r.header.entries()) {
+    //             std::println("  {} = {}", k, v);
+    //         }
+    //     }
+
+    //     // std::println("Body:");
+    //     // std::println("{}", r.body);
+
+    //     // std::println("Body size: {}", r.body.size());
+    // }
+
+    // straight-body test
     {
-        http::URL example = "https://www.google.com";
-        http::Socket s;
-        {
-            auto ec = s.connect(example);
-            if (!ec) {
-                std::println(stderr, "Error during connect: {}", ec.error());
-                std::exit(1);
-            }
+        auto ec = http::perform("GET", "https://www.google.com/");
+        if (!ec) {
+            std::println("Error: {}", ec.error());
+        } else {
+            auto r = ec.value();
+            std::println("Request succeeded. Body size={}", r.body.size());
         }
+    }
 
-        {
-            auto ec = s.send("GET {} HTTP/1.1\r\nHost: {}\r\nUser-Agent: curl/8.22.0\r\nConnection: close\r\n\r\n", example.route, example.hostname);
-            if (!ec) {
-                std::println("Error during send: {}", ec.error());
-                std::exit(1);
-            }
-        }
-
-        std::string body;
+    // callback test
+    {
         const auto func = [](const http::DownloadState &state) {
             std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
                          state.content_length, state.bytes_left);
 
-            std::println("Body fragment:\n{}", state.buffer);
+            // std::println("Body fragment:\n{}", state.buffer);
 
             return true;
         };
 
-        {
-            auto ec = s.readCallback(func);
-            if (!ec) {
-                std::println("Error during read: {}", ec.error());
-                std::exit(1);
-            }
-
-            const auto &r = ec.value();
-
-            std::println("Status: {} {}", int(r.status_code), r.reason);
-            std::println("Headers:");
-
-            for (const auto &[k, v] : r.header.entries()) {
-                std::println("  {} = {}", k, v);
-            }
+        auto ec = http::perform("GET", "https://www.google.com/", {.callback = func});
+        if (!ec) {
+            std::println("Error: {}", ec.error());
+        } else {
+            auto r = ec.value();
+            std::println("Request succeeded.", r.body.size());
         }
-
-        // std::println("Body:");
-        // std::println("{}", r.body);
-
-        // std::println("Body size: {}", r.body.size());
     }
 }
