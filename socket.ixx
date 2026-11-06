@@ -234,11 +234,8 @@ public:
         while (!finished) {
             // read hex size
             auto size_str = readLine();
-            std::println("Pre-Read size: {}", size_str);
 
             if (size_str.empty()) break;
-
-            std::println("Read size: {}", size_str);
 
             // strip chunk exts
             auto semi_pos = size_str.find(';');
@@ -255,8 +252,6 @@ public:
             if (ec != std::errc{}) {
                 break;
             }
-
-            std::println("  Chunk size: {}", size);
 
             // end of data, aka zero size chunk
             if (size == 0) {
