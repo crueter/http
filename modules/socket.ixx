@@ -3,6 +3,8 @@
 
 module;
 
+#include <chrono>
+#include <cerrno>
 #include <cstring>
 #include <expected>
 #include <format>
@@ -12,9 +14,12 @@ module;
 #include <charconv>
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -170,6 +175,9 @@ class Socket : public FileDescriptor {
     SSL *m_ssl = nullptr;
     bool m_connected = false;
 
+    std::chrono::milliseconds m_timeout;
+    std::chrono::milliseconds m_connectionTimeout;
+
     // SSL or insecure recv.
     int64_t internal_recv(char *buf, std::size_t n)
     {
@@ -212,6 +220,47 @@ class Socket : public FileDescriptor {
         return total;
     }
 
+    // connect with a timeout, return true if connected
+    std::expected<bool, Error> timed_connect(int fd, const sockaddr *addr, socklen_t len)
+    {
+        if (m_connectionTimeout.count() == 0)
+            return ::connect(fd, addr, len) != -1;
+
+        auto ms = m_connectionTimeout.count();
+        timeval tv{.tv_sec = ms / 1000, .tv_usec = (ms % 1000) * 1000};
+
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+        long flags = fcntl(fd, F_GETFL);
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+#else
+        u_long on = 1;
+        ioctlsocket(fd, FIONBVAL, &on);
+#endif
+
+        int rc = ::connect(fd, addr, len);
+        if (rc != 0 && errno == EINPROGRESS) {
+            fd_set wset;
+            FD_ZERO(&wset);
+            FD_SET(fd, &wset);
+
+            if (select(fd + 1, nullptr, &wset, nullptr, &tv) == 0)
+                return std::unexpected(Error::Timeout);
+
+            int err = 0;
+            socklen_t elen = sizeof(err);
+            getsockopt(fd, SOL_SOCKET, SO_ERROR, (char*)&err, &elen);
+            rc = (err != 0) ? -1 : 0;
+        }
+
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+        fcntl(fd, F_SETFL, flags);
+#else
+        u_long off = 0;
+        ioctlsocket(fd, FIONBVAL, &off);
+#endif
+        return rc == 0;
+    }
+
 public:
     // default constructor
     Socket() = default;
@@ -240,6 +289,9 @@ public:
     [[nodiscard]] std::expected<void, Error> connect(const hydro::URL &url,
                                                      const ConnectOptions &opts = {})
     {
+        // m_timeout = opts.timeout;
+        m_connectionTimeout = opts.connectionTimeout;
+
         struct addrinfo hints = {
             .ai_family = AF_INET,
             .ai_socktype = SOCK_STREAM,
@@ -262,7 +314,10 @@ public:
             if (t_fd == -1)
                 continue;
 
-            if (::connect(t_fd, conn->ai_addr, conn->ai_addrlen) != -1) {
+            auto ec = timed_connect(t_fd, conn->ai_addr, conn->ai_addrlen);
+            if (!ec) {
+                return std::unexpected(ec.error());
+            } else if (ec.value()) {
                 fd = t_fd;
                 break;
             }

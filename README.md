@@ -103,6 +103,10 @@ struct ConnectOptions {
 
     // Disable SSL entirely.
     bool disableSsl = false;
+
+    // Initial connection timeout.
+    // (set to 0ms to disable)
+    std::chrono::milliseconds connectionTimeout = 0ms;
 };
 
 struct RedirectOptions {
