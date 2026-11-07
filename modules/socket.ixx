@@ -295,7 +295,6 @@ public:
                 return std::unexpected(Error::TLSInit);
             }
 
-            // TODO: test
             if (!opts.cert.empty()) {
                 // read cert
                 BIO *bio = BIO_new_mem_buf(opts.cert.data(), opts.cert.size());

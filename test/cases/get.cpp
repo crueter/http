@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 crueter
 // SPDX-License-Identifier: MIT
 
+#include <chrono>
 #include <string>
 #include <print>
 #include <format>
@@ -44,7 +45,6 @@ void test_get() {
 }
 
 void test_drip() {
-    // TODO: test callback cancel
     std::string body;
     const auto func = [&body](const hydro::DownloadState &state) {
         std::println("Received {}/{} bytes ({} remaining)", state.bytes_received,
@@ -66,10 +66,43 @@ void test_drip() {
     tests::check_match("drip body size", body.size(), bytes);
 }
 
+
+void test_cancel() {
+    using namespace std::chrono_literals;
+    using sc = std::chrono::steady_clock;
+
+    sc::time_point t0{0ms};
+
+    const auto func = [&t0](const hydro::DownloadState &state) {
+        // first byte
+        if (state.bytes_received == 1) {
+            t0 = sc::now();
+        }
+
+        const auto diff = std::chrono::steady_clock::now() - t0;
+        const auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(diff);
+        std::println("Received {}/{} bytes ({} remaining) (current time {}, cancelling at 1000ms)", state.bytes_received,
+                        state.content_length, state.bytes_left, dur);
+
+        return (std::chrono::steady_clock::now() - t0) < 1s;
+    };
+
+    static std::size_t bytes = 10;
+    const auto url = std::format("https://httpbin.org/drip?delay=0.5&numbytes={}&duration=2", bytes);
+    auto ec = hydro::get(url, {.callback = func});
+
+    tests::check_err("cancelled httpbin.org/drip request succeeds", ec, hydro::Error::Success);
+
+    if (!ec) return;
+
+    // tests::check_match("drip body size", body.size(), bytes);
+}
+
 int main() {
     test_http();
     test_get();
     test_drip();
+    test_cancel();
 
     tests::exit();
 }

@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "cert.h"
+#include "cert.hpp"
 
 import hydrocarbon;
 import tests;
@@ -14,7 +14,7 @@ void test_bundled_cert() {
 
     const hydro::URL url = "https://httpbin.org/get";
     auto ec = hydro::head(url, opts);
-    tests::check_err("HEAD request succeeds", ec, hydro::Error::Success);
+    tests::check_err("Bundled certificate HEAD request succeeds", ec, hydro::Error::Success);
 }
 
 int main() {

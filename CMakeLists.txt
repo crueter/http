@@ -78,7 +78,6 @@ if (HYDROCARBON_INSTALL)
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hydrocarbon)
 endif()
 
-# TODO: real unit tests
 if (HYDROCARBON_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
