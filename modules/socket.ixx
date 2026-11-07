@@ -305,11 +305,14 @@ public:
 
                 auto infos = PEM_X509_INFO_read_bio(bio, nullptr, nullptr, nullptr);
                 if (!infos) {
+                    BIO_free(bio);
                     return std::unexpected(Error::InvalidCert);
                 }
 
                 X509_STORE *store = X509_STORE_new();
                 if (!store) {
+                    sk_X509_INFO_pop_free(infos, X509_INFO_free);
+                    BIO_free(bio);
                     return std::unexpected(Error::InvalidCert);
                 }
 
