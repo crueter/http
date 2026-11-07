@@ -146,7 +146,7 @@ enum class Error {
     // Malformed or otherwise invalid chunk data
     InvalidChunk,
 
-    // Timeout
+    // Connection timeout
     Timeout,
 };
 

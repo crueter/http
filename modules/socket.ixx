@@ -235,7 +235,7 @@ class Socket : public FileDescriptor {
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 #else
         u_long on = 1;
-        ioctlsocket(fd, FIONBVAL, &on);
+        ioctlsocket(fd, FIONBIO, &on);
 #endif
 
         int rc = ::connect(fd, addr, len);
@@ -257,7 +257,7 @@ class Socket : public FileDescriptor {
         fcntl(fd, F_SETFL, flags);
 #else
         u_long off = 0;
-        ioctlsocket(fd, FIONBVAL, &off);
+        ioctlsocket(fd, FIONBIO, &off);
 #endif
         return rc == 0;
     }
