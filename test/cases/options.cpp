@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 crueter
 // SPDX-License-Identifier: MIT
 
-#include <string_view>
+#include <string>
 
 import hydrocarbon;
 import tests;
