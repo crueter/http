@@ -220,6 +220,17 @@ class Socket : public FileDescriptor {
         return total;
     }
 
+    // whether a failed connect is merely in progress
+    static bool connect_in_progress()
+    {
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+        return errno == EINPROGRESS || errno == EAGAIN || errno == EWOULDBLOCK;
+#else
+        int err = WSAGetLastError();
+        return err == WSAEWOULDBLOCK || err == WSAEINPROGRESS;
+#endif
+    }
+
     // connect with a timeout, return true if connected
     std::expected<bool, Error> timed_connect(int fd, const sockaddr *addr, socklen_t len)
     {
@@ -241,18 +252,25 @@ class Socket : public FileDescriptor {
 #endif
 
         int rc = ::connect(fd, addr, len);
-        if (rc != 0 && errno == EINPROGRESS) {
+        if (rc != 0 && connect_in_progress()) {
             fd_set wset;
             FD_ZERO(&wset);
             FD_SET(fd, &wset);
 
-            if (select(fd + 1, nullptr, &wset, nullptr, &tv) == 0)
+            int sel = select(fd + 1, nullptr, &wset, nullptr, &tv);
+            if (sel == 0)
                 return std::unexpected(Error::Timeout);
+
+            if (sel < 0)
+                return std::unexpected(Error::ConnectFailed);
 
             int err = 0;
             socklen_t elen = sizeof(err);
             getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *) &err, &elen);
-            rc = (err != 0) ? -1 : 0;
+            if (err != 0)
+                return false;
+
+            rc = 0;
         }
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
