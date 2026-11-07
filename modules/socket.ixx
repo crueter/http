@@ -106,7 +106,7 @@ static void free_ssl(SSL *s)
     }
 }
 
-static void free_ctx(SSL_CTX *c) {
+export void free_ctx(SSL_CTX *c) {
     if (c) {
         SSL_CTX_free(c);
     }
