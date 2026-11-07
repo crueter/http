@@ -328,7 +328,9 @@ public:
             // status line
             if (firstLine) {
                 status_line = line;
-                parseStatusLine(line, (int &) status_code, reason);
+                int code = 0;
+                parseStatusLine(line, code, reason);
+                status_code = Status(code);
                 firstLine = false;
             } else {
                 auto colon = line.find(':');
@@ -350,7 +352,14 @@ public:
             pos = line_end + 2;
         }
 
-        // Chunked takes priority over sized.
+        // Server will never send a body for these statuses
+        const auto code = static_cast<int>(status_code);
+        if ((code >= 100 && code < 200) || code == 204 || code == 304) {
+            transferMode = TransferMode::NoData;
+            return;
+        }
+
+        // Chunked takes priority over sized
         const auto te = headers.get("transfer-encoding");
         const auto cl = headers.get("content-length");
         if (util::icontains(te.value_or(""), "chunked")) {
@@ -358,7 +367,7 @@ public:
         } else if (cl.has_value()) {
             transferMode = TransferMode::Sized;
         } else {
-            transferMode = TransferMode::NoData;
+            transferMode = TransferMode::UntilClose;
         }
     }
 

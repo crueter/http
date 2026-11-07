@@ -3,9 +3,9 @@
 
 @PACKAGE_INIT@
 
-find_dependency(OpenSSL)
-
 include(CMakeFindDependencyMacro)
+
+find_dependency(OpenSSL)
 
 include("${CMAKE_CURRENT_LIST_DIR}/hydrocarbonTargets.cmake")
 

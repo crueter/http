@@ -258,4 +258,5 @@ Where:
 - `status_line` is the raw status line returned by the server (e.g. `HTTP/1.1 200 OK`)
 - `status_code` is an enumeration corresponding to the numerical status code returned by the server.
 - `reason` is the string status response, e.g. `OK` or `Not Found`.
-- `transferMode` is either `Chunked`, `Sized`, or `NoData`.
+- `transferMode` is either `Chunked`, `Sized`, `UntilClose`, or `NoData`.
+  - Usually you don't need to worry about this

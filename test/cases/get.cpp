@@ -66,7 +66,6 @@ void test_drip() {
     tests::check_match("drip body size", body.size(), bytes);
 }
 
-
 void test_cancel() {
     using namespace std::chrono_literals;
     using sc = std::chrono::steady_clock;
@@ -94,8 +93,6 @@ void test_cancel() {
     tests::check_err("cancelled httpbin.org/drip request succeeds", ec, hydro::Error::Success);
 
     if (!ec) return;
-
-    // tests::check_match("drip body size", body.size(), bytes);
 }
 
 int main() {

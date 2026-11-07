@@ -89,9 +89,17 @@ enum class Protocol { NoProtocol = 0, HTTP, HTTPS };
 enum class Method { GET, POST, PUT, HEAD, OPTIONS };
 
 enum class TransferMode {
+    // Server will not send any data at all
     NoData = 0,
+
+    // Explicit content-length
     Sized = 1,
+
+    // Chunked transfers
     Chunked = 2,
+
+    // Read until server closes connection
+    UntilClose = 3,
 };
 
 enum class Version { HTTP_1_0 = -1, HTTP_1_1 = 0 };

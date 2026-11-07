@@ -100,7 +100,7 @@ export namespace hydro
 {
 
 // headers bigger than this are concerning
-inline constexpr auto maxHeaderSize = 16378;
+inline constexpr auto maxHeaderSize = 16384;
 
 // most reads
 inline constexpr auto defaultReadSize = 4096;
@@ -198,7 +198,7 @@ class Socket : public FileDescriptor {
 
         std::size_t total = 0;
         while (total < n) {
-            auto w = SSL_write(m_ssl, buf, n);
+            auto w = SSL_write(m_ssl, buf + total, n - total);
 
             if (w > 0)
                 total += w;
@@ -340,7 +340,13 @@ public:
 
             SSL_set_fd(ssl.get(), fd);
             SSL_set_tlsext_host_name(ssl.get(), url.hostname.c_str());
-            SSL_set_verify(ssl.get(), SSL_VERIFY_PEER, nullptr);
+            SSL_set_verify(ssl.get(), opts.verify ? SSL_VERIFY_PEER : SSL_VERIFY_NONE, nullptr);
+
+            if (opts.verify) {
+                X509_VERIFY_PARAM *param = SSL_get0_param(ssl.get());
+                if (!X509_VERIFY_PARAM_set1_host(param, url.hostname.c_str(), 0))
+                    return std::unexpected(Error::TLSVerify);
+            }
 
             if (SSL_connect(ssl.get()) <= 0) {
                 return std::unexpected(Error::ConnectFailed);
@@ -395,8 +401,7 @@ public:
     // Receive into a buffer.
     int64_t recv(std::string &buffer, std::size_t bytes = 0)
     {
-        const std::size_t max_bytes =
-            bytes > 0 ? bytes : (buffer.size() > 0 ? buffer.size() - 1 : defaultReadSize);
+        const std::size_t max_bytes = bytes > 0 ? bytes : defaultReadSize;
         buffer.resize(max_bytes);
 
         int64_t size = internal_recv(buffer.data(), max_bytes);
@@ -417,23 +422,63 @@ public:
     }
 
     // Sized transfer.
-    void readSized(Response &r, const UserCallback &cb)
+    std::expected<void, Error> readSized(Response &r, const UserCallback &cb)
     {
-        // account for ending byte
         std::size_t len = r.contentLength();
         std::size_t read = r.body.size();
-        cb({read, len - read, r.body.substr(0, read), len, r.status_code});
+
+        // cancel on false
+        auto cb_res = cb({read, len - read, r.body.substr(0, read), len, r.status_code});
+        if (!cb_res)
+            return {};
 
         std::string buf;
 
-        int64_t size;
-        while (read < len && (size = recv(buf, defaultReadSize)) > 0) {
-            read += size;
-            auto res = cb({read, len - read, buf, len, r.status_code});
-            if (!res) {
+        while (read < len) {
+            int64_t size = recv(buf, defaultReadSize);
+            if (size <= 0)
                 break;
-            }
+
+            read += size;
+
+            cb_res = cb({read, len - read, buf, len, r.status_code});
+            if (!cb_res)
+                return {};
         }
+
+        if (read < len)
+            return std::unexpected(Error::ReadFailed);
+
+        return {};
+    }
+
+    // Unsized transfer.
+    std::expected<void, Error> readUnsized(Response &r, const UserCallback &cb)
+    {
+        std::size_t read = r.body.size();
+
+        // cancel on false
+        auto cb_res = cb({read, 0, r.body.substr(0, read), 0, r.status_code});
+        if (!cb_res)
+            return {};
+
+        std::string buf;
+
+        while (true) {
+            int64_t size = recv(buf, defaultReadSize);
+            if (size < 0)
+                return std::unexpected(Error::ReadFailed);
+
+            if (size == 0)
+                break;
+
+            read += size;
+            cb_res = cb({read, 0, buf, 0, r.status_code});
+            if (!cb_res)
+                return {};
+        }
+
+        return {};
     }
 
     // Chunked transfer.
@@ -445,7 +490,7 @@ public:
         bool finished = false;
 
         // read a full line until \r\n, recv'ing if needed
-        const auto readLine = [this, &buf]() -> std::string {
+        const auto readLine = [this, &buf]() -> std::expected<std::string, Error> {
             while (true) {
                 auto pos = buf.find("\r\n");
 
@@ -459,20 +504,19 @@ public:
                 // need more socket data
                 std::string tmp;
                 if (recv(tmp, shortReadSize) <= 0)
-                    break;
+                    return std::unexpected(Error::ReadFailed);
 
                 buf += tmp;
             }
-
-            return "";
         };
 
         while (!finished) {
             // read hex size
-            auto size_str = readLine();
+            auto line_ec = readLine();
+            if (!line_ec)
+                return std::unexpected(line_ec.error());
 
-            if (size_str.empty())
-                break;
+            auto size_str = line_ec.value();
 
             // strip chunk exts
             auto semi_pos = size_str.find(';');
@@ -491,9 +535,14 @@ public:
             }
 
             // end of data, aka zero size chunk
+            // eat trailers until terminate
             if (size == 0) {
-                while (!readLine().empty()) {
+                while (true) {
+                    auto trailer_ec = readLine();
+                    if (!trailer_ec || trailer_ec->empty())
+                        break;
                 }
+
                 finished = true;
                 break;
             }
@@ -555,7 +604,7 @@ public:
     }
 
     // Read the headers and body in one shot.
-    std::expected<Response, Error> readAll()
+    std::expected<Response, Error> readAll(bool no_body = false)
     {
         std::string body;
         auto cb = [&body](const hydro::DownloadState &state) {
@@ -563,7 +612,7 @@ public:
             return true;
         };
 
-        auto ec = readCallback(cb);
+        auto ec = readCallback(cb, no_body);
         if (!ec)
             return ec;
 
@@ -573,7 +622,7 @@ public:
     }
 
     // Read with a callback.
-    std::expected<Response, Error> readCallback(const UserCallback &cb)
+    std::expected<Response, Error> readCallback(const UserCallback &cb, bool no_body = false)
     {
         auto ec = readHeaders();
         if (!ec)
@@ -581,14 +630,29 @@ public:
 
         auto r = ec.value();
 
+        if (no_body)
+            return r;
+
         switch (r.transferMode) {
-        case TransferMode::Sized:
-            readSized(r, cb);
+        case TransferMode::Sized: {
+            auto r_ec = readSized(r, cb);
+            if (!r_ec)
+                return std::unexpected(r_ec.error());
+
             break;
+        }
         case TransferMode::Chunked: {
             auto r_ec = readChunked(r, cb);
             if (!r_ec)
                 return std::unexpected(r_ec.error());
+
+            break;
+        }
+        case TransferMode::UntilClose: {
+            auto r_ec = readUnsized(r, cb);
+            if (!r_ec)
+                return std::unexpected(r_ec.error());
+
             break;
         }
         case TransferMode::NoData:
