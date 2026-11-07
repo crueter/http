@@ -303,15 +303,30 @@ public:
                     return std::unexpected(Error::InvalidCert);
                 }
 
-                X509 *cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
-                if (!cert) {
+                auto infos = PEM_X509_INFO_read_bio(bio, nullptr, nullptr, nullptr);
+                if (!infos) {
                     return std::unexpected(Error::InvalidCert);
                 }
 
-                SSL_use_certificate(ssl.get(), cert);
+                X509_STORE *store = X509_STORE_new();
+                if (!store) {
+                    return std::unexpected(Error::InvalidCert);
+                }
 
-                X509_free(cert);
+                // loop thru and add all entries
+                for (int i = 0; i < sk_X509_INFO_num(infos); ++i) {
+                    X509_INFO *tmp = sk_X509_INFO_value(infos, i);
+                    if (tmp->x509) {
+                        X509_STORE_add_cert(store, tmp->x509);
+                    } else if (tmp->crl) {
+                        X509_STORE_add_crl(store, tmp->crl);
+                    }
+                }
+
+                sk_X509_INFO_pop_free(infos, X509_INFO_free);
                 BIO_free(bio);
+
+                SSL_CTX_set_cert_store(ctx, store);
             } else {
 // use winstore if available
 #if defined(_WIN32) && OPENSSL_VERSION_PREREQ(3, 2)
