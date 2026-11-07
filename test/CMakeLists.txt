@@ -47,11 +47,12 @@ if (MINGW)
 endif()
 
 # test cases
-set(TESTS get head post redirect put options)
+set(TESTS get head post redirect put options bundled)
 
 foreach(test ${TESTS})
     add_executable(${test} cases/${test}.cpp)
     target_link_libraries(${test} PRIVATE tests jacinth::jacinth)
+    target_include_directories(${test} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/data)
 
     add_test(NAME ${test} COMMAND ${test})
 endforeach()
