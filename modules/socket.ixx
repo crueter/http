@@ -226,8 +226,9 @@ class Socket : public FileDescriptor {
         if (m_connectionTimeout.count() == 0)
             return ::connect(fd, addr, len) != -1;
 
+        // I HATE WINDOWS!!!!!!!!!!!!!
         auto ms = m_connectionTimeout.count();
-        timeval tv{.tv_sec = ms / 1000, .tv_usec = (ms % 1000) * 1000};
+        timeval tv{.tv_sec = long(ms / 1000), .tv_usec = long((ms % 1000) * 1000)};
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
         long flags = fcntl(fd, F_GETFL);
@@ -248,7 +249,7 @@ class Socket : public FileDescriptor {
 
             int err = 0;
             socklen_t elen = sizeof(err);
-            getsockopt(fd, SOL_SOCKET, SO_ERROR, (char*)&err, &elen);
+            getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *) &err, &elen);
             rc = (err != 0) ? -1 : 0;
         }
 
