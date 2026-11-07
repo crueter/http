@@ -47,7 +47,7 @@ if (MINGW)
 endif()
 
 # test cases
-set(TESTS get head post redirect put options bundled)
+set(TESTS get head post redirect put options bundled timeout)
 
 foreach(test ${TESTS})
     add_executable(${test} cases/${test}.cpp)

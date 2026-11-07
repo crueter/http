@@ -3,6 +3,7 @@
 
 module;
 
+#include <chrono>
 #include <format>
 #include <string>
 #include <string_view>
@@ -144,7 +145,12 @@ enum class Error {
 
     // Malformed or otherwise invalid chunk data
     InvalidChunk,
+
+    // Connection timeout
+    Timeout,
 };
+
+using namespace std::chrono_literals;
 
 // Connection options
 struct ConnectOptions {
@@ -156,6 +162,13 @@ struct ConnectOptions {
 
     // Disable SSL entirely.
     bool disableSsl = false;
+
+    // R/W timeout.
+    // std::chrono::milliseconds timeout = 0ms;
+
+    // Initial connection timeout.
+    std::chrono::milliseconds connectionTimeout = 0ms;
+
 };
 
 } // namespace hydro
@@ -207,6 +220,9 @@ export {
                 break;
             case hydro::Error::HeaderTooBig:
                 name = "Response header is too large";
+                break;
+            case hydro::Error::Timeout:
+                name = "Connection timed out";
                 break;
             }
 
