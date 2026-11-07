@@ -28,7 +28,7 @@ inline constexpr bool isRedirect(hydro::Status status)
 static inline hydro::URL resolveLocation(const hydro::URL &url, std::string_view location)
 {
     // absolute URL
-    if (location.find("://")) {
+    if (location.find("://") != std::string::npos) {
         return hydro::URL(location);
     }
 
@@ -170,15 +170,15 @@ std::expected<Response, Error> perform(std::string_view method, const URL &url,
 
     while (true) {
         Socket s;
-        auto r = performOnce(s, curMethod, curUrl, opts);
+        auto r = performOnce(s, curMethod, curUrl, curOpts);
         if (!r)
             return r;
 
         // handle redirects
-        // TODO: need a test suite for 303 etc
         auto loc = r->headers.get("location");
-        if (count < opts.redirect.maxRedirects && isRedirect(r->status_code) && loc.has_value()) {
+        if (opts.redirect.follow && count < opts.redirect.maxRedirects && isRedirect(r->status_code) && loc.has_value()) {
             modifyMethod(curMethod, curOpts.body, r->status_code, opts.redirect.preserveMethod);
+
             curUrl = resolveLocation(curUrl, loc.value());
             ++count;
             continue;
