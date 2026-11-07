@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 crueter
 // SPDX-License-Identifier: MIT
 
+#include <string_view>
+
 import hydrocarbon;
 import tests;
 import jacinth;
@@ -15,7 +17,7 @@ void test_options() {
 
     tests::check_match("access-control-allow-methods header",
                        ec->headers.get("access-control-allow-methods").value_or(""),
-                       "GET, POST, HEAD, PUT, DELETE, PATCH, QUERY, OPTIONS");
+                       std::string_view{"GET, POST, HEAD, PUT, DELETE, PATCH, QUERY, OPTIONS"});
 }
 
 int main() {
