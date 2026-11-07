@@ -46,7 +46,7 @@ static inline void modifyMethod(std::string &method, std::string &body, hydro::S
     case hydro::Status::MovedPermanently:
     case hydro::Status::Found:
         // move to GET and clear body
-        if (preserve && method != "GET" && method != "HEAD") {
+        if (!preserve && method != "GET" && method != "HEAD") {
             method = "GET";
             body.clear();
         }
@@ -119,7 +119,7 @@ std::expected<Response, Error> performOnce(Socket &s, std::string_view method, c
 
     // default ua/host
     if (!headers.contains("user-agent")) {
-        headers.add("user-agent", "Hydrocarbon/0.0.1");
+        headers.add("user-agent", "Hydrocarbon/0.1.0");
     }
 
     if (!headers.contains("host")) {
@@ -153,10 +153,13 @@ std::expected<Response, Error> performOnce(Socket &s, std::string_view method, c
     }
 
     // now read
+    // HEAD responses never carry a body, no matter what the headers say
+    const bool no_body = method == "HEAD";
+
     if (opts.callback) {
-        return s.readCallback(opts.callback);
+        return s.readCallback(opts.callback, no_body);
     } else {
-        return s.readAll();
+        return s.readAll(no_body);
     }
 }
 

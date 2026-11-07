@@ -122,10 +122,11 @@ void test_downgrade(const char *name, const char *target, const char *status_cod
 
 void test_downgrade_matrix()
 {
-    // 301/302: only downgrade when preserveMethod=true (default keeps POST+body)
-    test_downgrade("301 default", "/post", "301", false, "POST", "{\"k\":\"v\"}");
-    test_downgrade("301 preserve", "/get", "301", true, "GET", "");
-    test_downgrade("302 preserve", "/get", "302", true, "GET", "");
+    // 301/302: default downgrades POST->GET and drops the body;
+    // preserveMethod=true keeps POST + body
+    test_downgrade("301 default", "/get", "301", false, "GET", "");
+    test_downgrade("301 preserve", "/post", "301", true, "POST", "{\"k\":\"v\"}");
+    test_downgrade("302 preserve", "/post", "302", true, "POST", "{\"k\":\"v\"}");
     // 303: always downgrade to GET and drop the body
     test_downgrade("303", "/get", "303", false, "GET", "");
     // 307/308: preserve method AND body regardless of preserveMethod

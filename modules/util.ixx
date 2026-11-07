@@ -12,7 +12,7 @@ export module hydrocarbon:util;
 export namespace hydro::util
 {
 
-// Case sensitive string comparison.
+// Case insensitive string comparison.
 inline bool iequals(std::string_view a, std::string_view b)
 {
     if (a.size() != b.size())
@@ -22,7 +22,7 @@ inline bool iequals(std::string_view a, std::string_view b)
         a, b, [](char c1, char c2) { return std::tolower(c1) == std::tolower(c2); });
 }
 
-// Case-sensitive string contains.
+// Case-insensitive string contains.
 inline bool icontains(std::string_view haystack, std::string_view needle)
 {
     if (needle.empty())
