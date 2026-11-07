@@ -228,7 +228,9 @@ class Socket : public FileDescriptor {
 
         // I HATE WINDOWS!!!!!!!!!!!!!
         auto ms = m_connectionTimeout.count();
-        timeval tv{.tv_sec = long(ms / 1000), .tv_usec = long((ms % 1000) * 1000)};
+        timeval tv;
+        tv.tv_sec = ms / 1000;
+        tv.tv_usec = (ms % 1000) * 1000;
 
 #if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
         long flags = fcntl(fd, F_GETFL);
