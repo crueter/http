@@ -87,39 +87,45 @@ class Header {
 private:
     std::unordered_multimap<std::string, std::string> m_entries;
 
+    // transform a key to lowercase
+    static std::string lowercase_key(std::string_view key)
+    {
+        std::string lower_key{key};
+        std::ranges::transform(lower_key, lower_key.begin(),
+                       [](uint8_t c) { return std::tolower(c); });
+        return lower_key;
+    }
+
 public:
     // Add a {key, value} pair to this set of headers.
     // The key and value strings are copied.
     void add(std::string_view key, std::string_view value)
     {
-        // TODO: better sln.
-        std::string lower_key{key};
-        std::ranges::transform(lower_key, lower_key.begin(),
-                       [](uint8_t c) { return std::tolower(c); });
-        m_entries.emplace(lower_key, value);
+        m_entries.emplace(lowercase_key(key), value);
     }
 
     // Remove all entries with this key.
     // True on success, false if key not present, or erase failed for some reason.
     bool remove(std::string_view key)
     {
-        auto it = m_entries.find(std::string{key});
+        std::string lower_key = lowercase_key(key);
+        auto it = m_entries.find(lower_key);
         if (it == m_entries.end())
             return false;
 
-        return m_entries.erase(std::string{key}) == 1;
+        return m_entries.erase(lower_key) == 1;
     }
 
     // Check if the headers contain the specified key.
     bool contains(std::string_view key) const
     {
-        return m_entries.find(std::string{key}) != m_entries.end();
+        return m_entries.find(lowercase_key(key)) != m_entries.end();
     }
 
     // Get the first value for a key.
     std::optional<std::string> get(std::string_view key) const
     {
-        auto [first, last] = m_entries.equal_range(std::string{key});
+        auto [first, last] = m_entries.equal_range(lowercase_key(key));
         if (first == last)
             return std::nullopt;
 
@@ -131,7 +137,7 @@ public:
     {
         std::vector<std::string> result;
 
-        auto [first, last] = m_entries.equal_range(std::string{key});
+        auto [first, last] = m_entries.equal_range(lowercase_key(key));
         for (auto it = first; it != last; ++it)
             result.push_back(it->second);
 
