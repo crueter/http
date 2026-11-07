@@ -527,7 +527,7 @@ public:
     std::expected<void, Error> readSized(Response &r, const UserCallback &cb)
     {
         std::size_t len = r.contentLength();
-        std::size_t read = std::min(r.body.size(), len);
+        std::size_t read = (std::min)(r.body.size(), len);
 
         // cancel on false
         auto cb_res = cb({read, len - read, r.body.substr(0, read), len, r.status_code});
@@ -537,7 +537,7 @@ public:
         std::string buf;
 
         while (read < len) {
-            int64_t size = recv(buf, std::min(defaultReadSize, len - read));
+            int64_t size = recv(buf, (std::min)(defaultReadSize, len - read));
             if (size <= 0)
                 break;
 
