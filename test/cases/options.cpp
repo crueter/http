@@ -17,7 +17,7 @@ void test_options() {
 
     tests::check_match("access-control-allow-methods header",
                        ec->headers.get("access-control-allow-methods").value_or(""),
-                       std::string_view{"GET, POST, HEAD, PUT, DELETE, PATCH, QUERY, OPTIONS"});
+                       std::string{"GET, POST, HEAD, PUT, DELETE, PATCH, QUERY, OPTIONS"});
 }
 
 int main() {
