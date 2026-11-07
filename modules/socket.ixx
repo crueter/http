@@ -316,6 +316,7 @@ public:
 
             auto ec = timed_connect(t_fd, conn->ai_addr, conn->ai_addrlen);
             if (!ec) {
+                closesocket(t_fd);
                 return std::unexpected(ec.error());
             } else if (ec.value()) {
                 fd = t_fd;
